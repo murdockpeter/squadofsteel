@@ -18,12 +18,10 @@ namespace SquadOfSteelMod.Combat
             if (attacker?.unit == null || defender?.unit == null || outcome == null)
                 return;
 
-            int actualDamage = Mathf.Max(0, outcome.TargetHpBefore - outcome.TargetHpAfter);
-
             var sb = new StringBuilder();
             sb.AppendLine($"Combat debug: {attacker.unit.Name} -> {defender.unit.Name}");
             sb.AppendLine($" - Hit chance: {Mathf.RoundToInt(outcome.HitChance * 100f)}% (roll: {outcome.Roll:0.00})");
-            sb.AppendLine($" - Outcome: {(outcome.Hit ? "HIT" : "MISS")}, damage: {actualDamage}/{outcome.DamageOnHit} (base {outcome.BaseDamage}, expected {outcome.ExpectedDamage})");
+            sb.AppendLine($" - Outcome: {(outcome.Hit ? "HIT" : "MISS")}, damage: {outcome.Damage}/{outcome.DamageOnHit} (base {outcome.BaseDamage}, expected {outcome.ExpectedDamage})");
             sb.AppendLine($" - Distance: {outcome.Distance} hex, LoS: {(outcome.HasLineOfSight ? "clear" : "blocked")}, retaliation: {(outcome.IsRetaliation ? "yes" : "no")}, support: {(outcome.IsSupport ? "yes" : "no")}");
             sb.AppendLine($" - Suppression attacker {outcome.AttackerSuppressionBefore}->{outcome.AttackerSuppressionAfter}, target {outcome.TargetSuppressionBefore}->{outcome.TargetSuppressionAfter}");
 
@@ -48,7 +46,7 @@ namespace SquadOfSteelMod.Combat
             {
                 if (UIManager.instance != null)
                 {
-                    string overlaySummary = $"{attacker.unit.Name} -> {defender.unit.Name}: {(outcome.Hit ? "HIT" : "MISS")} ({Mathf.RoundToInt(outcome.HitChance * 100f)}% / roll {outcome.Roll:0.00}) dmg {actualDamage}";
+                    string overlaySummary = $"{attacker.unit.Name} → {defender.unit.Name}: {(outcome.Hit ? "HIT" : "MISS")} ({Mathf.RoundToInt(outcome.HitChance * 100f)}% / roll {outcome.Roll:0.00}) dmg {outcome.Damage}";
                     UIManager.ShowMessage(overlaySummary, 3.5f);
                 }
             }

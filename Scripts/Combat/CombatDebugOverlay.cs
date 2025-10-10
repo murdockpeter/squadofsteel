@@ -3,6 +3,7 @@
 // =============================================================================
 
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -19,7 +20,7 @@ namespace SquadOfSteelMod.Combat
         static GameObject s_root;
         static RectTransform s_content;
         static ScrollRect s_scrollRect;
-        static Font s_defaultFont;
+        static TMP_FontAsset s_defaultFont;
 
         public static void Initialize()
         {
@@ -42,15 +43,26 @@ namespace SquadOfSteelMod.Combat
                 if (s_root != null)
                 {
                     s_root.SetActive(false);
+                    Debug.Log("[SquadOfSteel][Overlay] Hidden (debug off).");
                 }
                 return;
             }
 
-            if (s_root == null)
-                Initialize();
+            Initialize();
 
             if (s_root != null)
+            {
                 s_root.SetActive(true);
+                if (s_entries.Count == 0)
+                {
+                    AddEntry("Combat debug overlay enabled.");
+                }
+                Debug.Log("[SquadOfSteel][Overlay] Shown (debug on).");
+            }
+            else
+            {
+                Debug.LogWarning("[SquadOfSteel][Overlay] Could not show overlay; root is null.");
+            }
         }
 
         public static void AddEntry(string message)
@@ -63,19 +75,32 @@ namespace SquadOfSteelMod.Combat
                 QueuePending(message);
                 Initialize();
                 if (s_root == null)
+                {
+                    Debug.LogWarning("[SquadOfSteel][Overlay] Entry queued; overlay not yet ready.");
                     return;
+                }
             }
 
-            var entryGO = new GameObject("Entry", typeof(RectTransform), typeof(Text));
+            var entryGO = new GameObject("Entry", typeof(RectTransform));
             entryGO.transform.SetParent(s_content, worldPositionStays: false);
-            var text = entryGO.GetComponent<Text>();
-            text.font = s_defaultFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-            text.fontSize = 16;
+            var entryRect = entryGO.GetComponent<RectTransform>();
+            entryRect.anchorMin = new Vector2(0f, 1f);
+            entryRect.anchorMax = new Vector2(1f, 1f);
+            entryRect.pivot = new Vector2(0.5f, 1f);
+            entryRect.offsetMin = new Vector2(0f, 0f);
+            entryRect.offsetMax = new Vector2(0f, 0f);
+
+            var text = entryGO.AddComponent<TextMeshProUGUI>();
+            text.font = s_defaultFont;
+            text.fontSize = 20;
             text.color = new Color(0.9f, 0.9f, 0.9f, 1f);
-            text.alignment = TextAnchor.UpperLeft;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.text = message;
+            text.alignment = TextAlignmentOptions.TopLeft;
+            text.enableWordWrapping = true;
+            text.richText = false;
+            text.raycastTarget = false;
+            text.margin = new Vector4(4f, 2f, 4f, 6f);
+            text.text = message.Replace("\r\n", "\n");
+            Debug.Log($"[SquadOfSteel][Overlay] Entry text using font '{text.font?.name ?? "<null>"}'.");
 
             s_entries.Add(entryGO);
             if (s_entries.Count > MaxEntries)
@@ -86,10 +111,14 @@ namespace SquadOfSteelMod.Combat
             }
 
             Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(entryRect);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(s_content);
             if (s_scrollRect != null)
             {
-                s_scrollRect.verticalNormalizedPosition = 0f;
+                s_scrollRect.verticalNormalizedPosition = 1f;
             }
+
+            Debug.Log($"[SquadOfSteel][Overlay] Added entry (total {s_entries.Count}).");
         }
 
         static void QueuePending(string message)
@@ -116,7 +145,23 @@ namespace SquadOfSteelMod.Combat
             if (s_defaultFont != null)
                 return;
 
-            s_defaultFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            s_defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            if (s_defaultFont == null && UIManager.instance != null && UIManager.instance.playerMoneyAmount_Text != null)
+            {
+                s_defaultFont = UIManager.instance.playerMoneyAmount_Text.font;
+            }
+            if (s_defaultFont == null)
+            {
+                s_defaultFont = TMP_Settings.defaultFontAsset;
+            }
+            if (s_defaultFont != null)
+            {
+                Debug.Log($"[SquadOfSteel][Overlay] Using font asset '{s_defaultFont.name}'.");
+            }
+            else
+            {
+                Debug.LogWarning("[SquadOfSteel][Overlay] No TMP font asset available; overlay text may not render.");
+            }
         }
 
         static void CreateOverlay()
@@ -130,6 +175,8 @@ namespace SquadOfSteelMod.Combat
             rect.pivot = new Vector2(0f, 0.5f);
             rect.offsetMin = new Vector2(20f, 40f);
             rect.offsetMax = new Vector2(320f, -40f);
+            s_root.layer = canvas.gameObject.layer;
+            s_root.transform.SetAsLastSibling();
 
             var background = s_root.GetComponent<Image>();
             background.color = new Color(0f, 0f, 0f, 0.55f);

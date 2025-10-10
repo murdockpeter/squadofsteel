@@ -108,6 +108,7 @@ namespace SquadOfSteelMod.Combat
 
             var outcome = SquadCombatRuntime.ResolveOutcome(preview);
             __instance.unit.FinalDamage = outcome.Damage;
+            outcome.TargetHpBefore = p_targetUnitGO.unit.CurrHP;
             __state = outcome;
             SquadCombatRuntime.RecordOutcome(__instance.unit, p_targetUnitGO.unit, outcome);
         }
@@ -121,6 +122,26 @@ namespace SquadOfSteelMod.Combat
 
             if (__state == null)
                 return;
+
+            int finalTargetHp = p_targetUnitGO.unit.CurrHP;
+            int actualDamage = Mathf.Max(0, __state.TargetHpBefore - finalTargetHp);
+
+            if (!__state.Hit && actualDamage > 0)
+            {
+                // Guard against stray damage when the shot was marked as a miss.
+                p_targetUnitGO.unit.CurrHP = __state.TargetHpBefore;
+                finalTargetHp = p_targetUnitGO.unit.CurrHP;
+                actualDamage = 0;
+                p_targetUnitGO.UpdateCounter();
+            }
+            else if (actualDamage > 0)
+            {
+                p_targetUnitGO.UpdateCounter();
+            }
+
+            __state.TargetHpAfter = finalTargetHp;
+            __state.Damage = actualDamage;
+            __state.Hit = actualDamage > 0;
 
             if (__state.Hit && __state.Damage > 0)
             {
@@ -138,6 +159,16 @@ namespace SquadOfSteelMod.Combat
             CombatDebugReporter.Report(__instance, p_targetUnitGO, __state);
 
             SquadCombatRuntime.ClearOutcome(__instance.unit, p_targetUnitGO.unit);
+
+            SquadOfSteelSuppressionIndicator.For(__instance)?.Refresh();
+            SquadOfSteelSuppressionIndicator.For(p_targetUnitGO)?.Refresh();
+        }
+
+        [HarmonyPatch(typeof(UnitGO), "UpdateCounter")]
+        [HarmonyPostfix]
+        static void UpdateSuppressionIndicator(UnitGO __instance)
+        {
+            SquadOfSteelSuppressionIndicator.For(__instance)?.Refresh();
         }
 
         [HarmonyPatch(typeof(UnitGO), "Retaliate")]
@@ -171,6 +202,7 @@ namespace SquadOfSteelMod.Combat
         {
             SquadOfSteelSuppression.DecayAll();
             SquadOfSteelState.Save();
+            SquadOfSteelSuppressionIndicator.RefreshAll();
         }
     }
 }

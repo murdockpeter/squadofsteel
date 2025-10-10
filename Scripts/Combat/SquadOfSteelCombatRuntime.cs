@@ -293,6 +293,8 @@ namespace SquadOfSteelMod.Combat
         public bool IsSupport { get; set; }
         public int AttackerSuppressionAfter { get; set; }
         public int TargetSuppressionAfter { get; set; }
+        public int TargetHpBefore { get; set; }
+        public int TargetHpAfter { get; set; }
     }
 
     public static class SquadOfSteelCombatMath
