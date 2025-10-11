@@ -1,5 +1,5 @@
 // =============================================================================
-// Renders a thin scrolling debug overlay for combat events.
+// Renders a slim, left-docked combat debug overlay with scrollable entries.
 // =============================================================================
 
 using System.Collections.Generic;
@@ -21,19 +21,30 @@ namespace SquadOfSteelMod.Combat
         static RectTransform s_content;
         static ScrollRect s_scrollRect;
         static TMP_FontAsset s_defaultFont;
+        static bool s_warnedMissingCanvas;
 
         public static void Initialize()
         {
             if (s_root != null)
                 return;
 
-            if (UIManager.instance == null || UIManager.instance.mainCanvas == null)
+            var hostCanvas = GetHostCanvas();
+            if (hostCanvas == null)
+            {
+                if (!s_warnedMissingCanvas)
+                {
+                    Debug.LogWarning("[SquadOfSteel][Overlay] UIManager canvas not yet available; overlay deferred.");
+                    s_warnedMissingCanvas = true;
+                }
                 return;
+            }
 
             EnsureFont();
-            CreateOverlay();
+            CreateOverlay(hostCanvas);
             FlushPending();
-            SetVisible(SquadCombatRuntime.DebugEnabled);
+
+            if (!SquadCombatRuntime.DebugEnabled && s_root != null)
+                s_root.SetActive(false);
         }
 
         public static void SetVisible(bool visible)
@@ -41,10 +52,9 @@ namespace SquadOfSteelMod.Combat
             if (!visible)
             {
                 if (s_root != null)
-                {
                     s_root.SetActive(false);
-                    Debug.Log("[SquadOfSteel][Overlay] Hidden (debug off).");
-                }
+
+                Debug.Log("[SquadOfSteel][Overlay] Hidden (debug off).");
                 return;
             }
 
@@ -53,10 +63,10 @@ namespace SquadOfSteelMod.Combat
             if (s_root != null)
             {
                 s_root.SetActive(true);
+
                 if (s_entries.Count == 0)
-                {
                     AddEntry("Combat debug overlay enabled.");
-                }
+
                 Debug.Log("[SquadOfSteel][Overlay] Shown (debug on).");
             }
             else
@@ -74,6 +84,7 @@ namespace SquadOfSteelMod.Combat
             {
                 QueuePending(message);
                 Initialize();
+
                 if (s_root == null)
                 {
                     Debug.LogWarning("[SquadOfSteel][Overlay] Entry queued; overlay not yet ready.");
@@ -87,20 +98,19 @@ namespace SquadOfSteelMod.Combat
             entryRect.anchorMin = new Vector2(0f, 1f);
             entryRect.anchorMax = new Vector2(1f, 1f);
             entryRect.pivot = new Vector2(0.5f, 1f);
-            entryRect.offsetMin = new Vector2(0f, 0f);
-            entryRect.offsetMax = new Vector2(0f, 0f);
+            entryRect.offsetMin = Vector2.zero;
+            entryRect.offsetMax = Vector2.zero;
 
             var text = entryGO.AddComponent<TextMeshProUGUI>();
             text.font = s_defaultFont;
-            text.fontSize = 20;
-            text.color = new Color(0.9f, 0.9f, 0.9f, 1f);
+            text.fontSize = 20f;
+            text.color = new Color(0.92f, 0.92f, 0.92f, 1f);
             text.alignment = TextAlignmentOptions.TopLeft;
             text.enableWordWrapping = true;
             text.richText = false;
             text.raycastTarget = false;
-            text.margin = new Vector4(4f, 2f, 4f, 6f);
+            text.margin = new Vector4(12f, 4f, 12f, 8f);
             text.text = message.Replace("\r\n", "\n");
-            Debug.Log($"[SquadOfSteel][Overlay] Entry text using font '{text.font?.name ?? "<null>"}'.");
 
             s_entries.Add(entryGO);
             if (s_entries.Count > MaxEntries)
@@ -113,12 +123,9 @@ namespace SquadOfSteelMod.Combat
             Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(entryRect);
             LayoutRebuilder.ForceRebuildLayoutImmediate(s_content);
-            if (s_scrollRect != null)
-            {
-                s_scrollRect.verticalNormalizedPosition = 1f;
-            }
 
-            Debug.Log($"[SquadOfSteel][Overlay] Added entry (total {s_entries.Count}).");
+            if (s_scrollRect != null)
+                s_scrollRect.verticalNormalizedPosition = 1f;
         }
 
         static void QueuePending(string message)
@@ -134,10 +141,14 @@ namespace SquadOfSteelMod.Combat
                 return;
 
             foreach (var entry in s_pendingEntries)
-            {
                 AddEntry(entry);
-            }
+
             s_pendingEntries.Clear();
+        }
+
+        static Canvas GetHostCanvas()
+        {
+            return UIManager.instance != null ? UIManager.instance.mainCanvas : null;
         }
 
         static void EnsureFont()
@@ -145,55 +156,114 @@ namespace SquadOfSteelMod.Combat
             if (s_defaultFont != null)
                 return;
 
-            s_defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            s_defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF");
+            if (s_defaultFont == null)
+                s_defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial");
+            if (s_defaultFont == null)
+                s_defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+
             if (s_defaultFont == null && UIManager.instance != null && UIManager.instance.playerMoneyAmount_Text != null)
-            {
                 s_defaultFont = UIManager.instance.playerMoneyAmount_Text.font;
-            }
+
             if (s_defaultFont == null)
             {
+                var builtInArial = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                if (builtInArial != null)
+                    s_defaultFont = TMP_FontAsset.CreateFontAsset(builtInArial);
+            }
+
+            if (s_defaultFont == null)
                 s_defaultFont = TMP_Settings.defaultFontAsset;
-            }
-            if (s_defaultFont != null)
-            {
-                Debug.Log($"[SquadOfSteel][Overlay] Using font asset '{s_defaultFont.name}'.");
-            }
-            else
-            {
-                Debug.LogWarning("[SquadOfSteel][Overlay] No TMP font asset available; overlay text may not render.");
-            }
         }
 
-        static void CreateOverlay()
+        static void CreateOverlay(Canvas hostCanvas)
         {
-            var canvas = UIManager.instance.mainCanvas;
-            s_root = new GameObject("SquadOfSteelDebugOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
-            var rect = s_root.GetComponent<RectTransform>();
-            rect.SetParent(canvas.transform, worldPositionStays: false);
-            rect.anchorMin = new Vector2(0f, 0f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 0.5f);
-            rect.offsetMin = new Vector2(20f, 40f);
-            rect.offsetMax = new Vector2(320f, -40f);
-            s_root.layer = canvas.gameObject.layer;
-            s_root.transform.SetAsLastSibling();
+            s_root = new GameObject("SquadOfSteelDebugOverlay", typeof(RectTransform));
+            var rootRect = s_root.GetComponent<RectTransform>();
+            rootRect.SetParent(hostCanvas.transform, worldPositionStays: false);
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+            s_root.layer = hostCanvas.gameObject.layer;
 
-            var background = s_root.GetComponent<Image>();
-            background.color = new Color(0f, 0f, 0f, 0.55f);
+            var panel = new GameObject("Panel", typeof(RectTransform), typeof(Image), typeof(CanvasGroup));
+            panel.transform.SetParent(s_root.transform, worldPositionStays: false);
+            var panelRect = panel.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0f, 0.5f);
+            panelRect.anchorMax = new Vector2(0f, 0.5f);
+            panelRect.pivot = new Vector2(0f, 0.5f);
+            panelRect.sizeDelta = new Vector2(360f, 720f);
+            panelRect.anchoredPosition = new Vector2(32f, 0f);
 
-            s_scrollRect = s_root.GetComponent<ScrollRect>();
+            var panelImage = panel.GetComponent<Image>();
+            panelImage.color = new Color(0.08f, 0.08f, 0.1f, 0.92f);
+            panelImage.raycastTarget = false;
+
+            var panelGroup = panel.GetComponent<CanvasGroup>();
+            panelGroup.blocksRaycasts = false;
+            panelGroup.interactable = false;
+            panelGroup.ignoreParentGroups = true;
+
+            var header = new GameObject("Header", typeof(RectTransform), typeof(Image));
+            header.transform.SetParent(panel.transform, worldPositionStays: false);
+            var headerRect = header.GetComponent<RectTransform>();
+            headerRect.anchorMin = new Vector2(0f, 1f);
+            headerRect.anchorMax = new Vector2(1f, 1f);
+            headerRect.pivot = new Vector2(0.5f, 1f);
+            headerRect.sizeDelta = new Vector2(0f, 64f);
+            headerRect.anchoredPosition = Vector2.zero;
+
+            var headerImage = header.GetComponent<Image>();
+            headerImage.color = new Color(0.18f, 0.28f, 0.45f, 1f);
+            headerImage.raycastTarget = false;
+
+            var title = new GameObject("Title", typeof(RectTransform));
+            title.transform.SetParent(header.transform, worldPositionStays: false);
+            var titleRect = title.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0f, 0f);
+            titleRect.anchorMax = new Vector2(1f, 1f);
+            titleRect.offsetMin = new Vector2(20f, 0f);
+            titleRect.offsetMax = new Vector2(-20f, 0f);
+
+            var titleText = title.AddComponent<TextMeshProUGUI>();
+            titleText.font = s_defaultFont;
+            titleText.text = "Squad of Steel - Combat Debug";
+            titleText.fontSize = 24f;
+            titleText.fontStyle = FontStyles.Bold;
+            titleText.color = Color.white;
+            titleText.alignment = TextAlignmentOptions.MidlineLeft;
+            titleText.raycastTarget = false;
+
+            var body = new GameObject("Body", typeof(RectTransform), typeof(Image));
+            body.transform.SetParent(panel.transform, worldPositionStays: false);
+            var bodyRect = body.GetComponent<RectTransform>();
+            bodyRect.anchorMin = new Vector2(0f, 0f);
+            bodyRect.anchorMax = new Vector2(1f, 1f);
+            bodyRect.offsetMin = new Vector2(16f, 16f);
+            bodyRect.offsetMax = new Vector2(-16f, -72f);
+
+            var bodyImage = body.GetComponent<Image>();
+            bodyImage.color = new Color(0.05f, 0.05f, 0.07f, 0.9f);
+            bodyImage.raycastTarget = false;
+
+            s_scrollRect = body.AddComponent<ScrollRect>();
             s_scrollRect.horizontal = false;
             s_scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            s_scrollRect.inertia = true;
+            s_scrollRect.scrollSensitivity = 25f;
 
-            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
             var viewportRect = viewport.GetComponent<RectTransform>();
-            viewportRect.SetParent(s_root.transform, worldPositionStays: false);
-            viewportRect.anchorMin = new Vector2(0f, 0f);
-            viewportRect.anchorMax = new Vector2(1f, 1f);
-            viewportRect.offsetMin = new Vector2(6f, 6f);
-            viewportRect.offsetMax = new Vector2(-6f, -6f);
-            viewport.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
-            viewport.GetComponent<Mask>().showMaskGraphic = false;
+            viewportRect.SetParent(body.transform, worldPositionStays: false);
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = new Vector2(4f, 4f);
+            viewportRect.offsetMax = new Vector2(-4f, -4f);
+
+            var viewportImage = viewport.GetComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0f);
+            viewportImage.raycastTarget = false;
 
             var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             s_content = content.GetComponent<RectTransform>();
@@ -201,16 +271,16 @@ namespace SquadOfSteelMod.Combat
             s_content.anchorMin = new Vector2(0f, 1f);
             s_content.anchorMax = new Vector2(1f, 1f);
             s_content.pivot = new Vector2(0.5f, 1f);
-            s_content.offsetMin = new Vector2(0f, 0f);
-            s_content.offsetMax = new Vector2(0f, 0f);
+            s_content.offsetMin = Vector2.zero;
+            s_content.offsetMax = Vector2.zero;
 
             var layout = content.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperLeft;
-            layout.spacing = 4f;
-            layout.childControlHeight = true;
+            layout.spacing = 6f;
             layout.childControlWidth = true;
-            layout.childForceExpandHeight = false;
+            layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
 
             var fitter = content.GetComponent<ContentSizeFitter>();
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
