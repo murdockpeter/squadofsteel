@@ -5,6 +5,7 @@
 using System;
 using HarmonyLib;
 using UnityEngine;
+using SquadOfSteelMod;
 
 namespace SquadOfSteelMod.Combat
 {
@@ -33,7 +34,7 @@ namespace SquadOfSteelMod.Combat
             int targetSupp = SquadOfSteelSuppression.Get(targetGO.unit);
 
             float hitChance = SquadOfSteelCombatMath.ComputeHitChance(__instance, attackerGO, targetGO, distance, hasLoS, attackerSupp, targetSupp, p_isRetaliation, p_isSupportiveFire);
-            int damageOnHit = SquadOfSteelCombatMath.ComputeDamageOnHit(baseDamage, distance, targetSupp);
+            int damageOnHit = SquadOfSteelCombatMath.ComputeDamageOnHit(baseDamage, distance, targetSupp, targetGO.unit);
 
             if (!hasLoS)
             {
@@ -81,6 +82,11 @@ namespace SquadOfSteelMod.Combat
             if (__instance?.unit == null || p_targetUnitGO?.unit == null)
                 return;
 
+            if (SquadMovementRuntime.GetMode(__instance.unit) == SquadMovementRuntime.MovementMode.Move)
+            {
+                SquadMovementRuntime.TrySetMode(__instance, SquadMovementRuntime.MovementMode.Combat, showFeedback: false);
+            }
+
             if (!SquadCombatRuntime.TryConsumePreview(__instance.unit, p_targetUnitGO.unit, out var preview))
             {
                 Tile attackerTile = __instance.tileGO?.tile;
@@ -90,7 +96,7 @@ namespace SquadOfSteelMod.Combat
                 int attackerSupp = SquadOfSteelSuppression.Get(__instance.unit);
                 int targetSupp = SquadOfSteelSuppression.Get(p_targetUnitGO.unit);
                 float fallbackHit = SquadOfSteelCombatMath.ComputeHitChance(__instance.unit, __instance, p_targetUnitGO, distance, hasLoS, attackerSupp, targetSupp, isRetaliation: false, isSupport: false);
-                int fallbackDamage = SquadOfSteelCombatMath.ComputeDamageOnHit(__instance.unit.FinalDamage, distance, targetSupp);
+                int fallbackDamage = SquadOfSteelCombatMath.ComputeDamageOnHit(__instance.unit.FinalDamage, distance, targetSupp, p_targetUnitGO.unit);
                 int fallbackExpected = Mathf.RoundToInt(fallbackDamage * fallbackHit);
 
                 preview = new CombatPreview(
@@ -169,6 +175,7 @@ namespace SquadOfSteelMod.Combat
         static void UpdateSuppressionIndicator(UnitGO __instance)
         {
             SquadOfSteelSuppressionIndicator.For(__instance)?.Refresh();
+            SquadMovementRuntime.Resync(__instance);
         }
 
         [HarmonyPatch(typeof(UnitGO), "Retaliate")]
@@ -187,6 +194,7 @@ namespace SquadOfSteelMod.Combat
 
             SquadOfSteelSuppression.Clear(__instance.unit);
             SquadCombatRuntime.ClearForUnit(__instance.unit);
+            SquadMovementRuntime.Clear(__instance.unit);
         }
 
         [HarmonyPatch(typeof(UIManager), "Start")]
@@ -203,6 +211,7 @@ namespace SquadOfSteelMod.Combat
             SquadOfSteelSuppression.DecayAll();
             SquadOfSteelState.Save();
             SquadOfSteelSuppressionIndicator.RefreshAll();
+            SquadMovementRuntime.OnTurnAdvance();
         }
     }
 }

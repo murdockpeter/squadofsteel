@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using SquadOfSteelMod;
 
 namespace SquadOfSteelMod.Combat
 {
@@ -25,6 +26,8 @@ namespace SquadOfSteelMod.Combat
         LineRenderer _ringOutline;
         LineRenderer _ring;
         int _lastSuppression = int.MinValue;
+        GameObject _badgeRoot;
+        bool _forciblyHidden;
         Color _baseTextColor = new Color(0.95f, 0.95f, 0.95f, 1f);
         readonly Color _textHighlightColor = new Color(1f, 0.45f, 0.15f, 1f);
         readonly Color _ringLowColor = new Color(0.35f, 0.85f, 0.35f, 0.9f);
@@ -46,6 +49,11 @@ namespace SquadOfSteelMod.Combat
                 Destroy(_label.gameObject);
                 _label = null;
             }
+            if (_badgeRoot != null)
+            {
+                Destroy(_badgeRoot);
+                _badgeRoot = null;
+            }
             if (_ring != null)
             {
                 Destroy(_ring.gameObject);
@@ -63,12 +71,12 @@ namespace SquadOfSteelMod.Combat
             if (_label != null || _owner == null)
                 return;
 
-            var badgeRoot = new GameObject("SquadOfSteel.SuppressionBadge");
-            badgeRoot.transform.SetParent(transform, false);
-            badgeRoot.transform.localPosition = new Vector3(LabelXOffset, LabelYOffset, -0.1f);
+            _badgeRoot = new GameObject("SquadOfSteel.SuppressionBadge");
+            _badgeRoot.transform.SetParent(transform, false);
+            _badgeRoot.transform.localPosition = new Vector3(LabelXOffset, LabelYOffset, -0.1f);
 
             var labelGO = new GameObject("Value");
-            labelGO.transform.SetParent(badgeRoot.transform, false);
+            labelGO.transform.SetParent(_badgeRoot.transform, false);
             _label = labelGO.AddComponent<TextMeshPro>();
             _label.enableAutoSizing = false;
             _label.fontStyle = FontStyles.Bold;
@@ -101,8 +109,8 @@ namespace SquadOfSteelMod.Combat
                 }
             }
 
-            _ringOutline = CreateRingRenderer(badgeRoot.transform, "RingOutline");
-            _ring = CreateRingRenderer(badgeRoot.transform, "Ring");
+            _ringOutline = CreateRingRenderer(_badgeRoot.transform, "RingOutline");
+            _ring = CreateRingRenderer(_badgeRoot.transform, "Ring");
 
             if (_ring != null && _owner.unitSprite != null)
             {
@@ -240,8 +248,28 @@ namespace SquadOfSteelMod.Combat
                 return;
 
             CreateBadge();
+            if (_badgeRoot == null)
+                return;
+
+            if (_forciblyHidden)
+            {
+                if (_badgeRoot.activeSelf)
+                    _badgeRoot.SetActive(false);
+                return;
+            }
+
+            if (!_badgeRoot.activeSelf)
+                _badgeRoot.SetActive(true);
+
             if (_label == null || _ring == null)
                 return;
+
+            if (SquadMovementRuntime.GetMode(_owner.unit) == SquadMovementRuntime.MovementMode.Move)
+            {
+                if (_badgeRoot.activeSelf)
+                    _badgeRoot.SetActive(false);
+                return;
+            }
 
             int suppression = SquadOfSteelSuppression.Get(_owner.unit);
             if (suppression == _lastSuppression)
@@ -252,14 +280,13 @@ namespace SquadOfSteelMod.Combat
             if (suppression <= 0)
             {
                 _label.text = string.Empty;
-                if (_label.gameObject.activeSelf)
-                    _label.gameObject.SetActive(false);
-                if (_ring.gameObject.activeSelf)
-                    _ring.gameObject.SetActive(false);
-                if (_ringOutline != null && _ringOutline.gameObject.activeSelf)
-                    _ringOutline.gameObject.SetActive(false);
+                if (_badgeRoot.activeSelf)
+                    _badgeRoot.SetActive(false);
                 return;
             }
+
+            if (!_badgeRoot.activeSelf)
+                _badgeRoot.SetActive(true);
 
             if (!_label.gameObject.activeSelf)
                 _label.gameObject.SetActive(true);
@@ -276,6 +303,19 @@ namespace SquadOfSteelMod.Combat
             Color ringColor = Color.Lerp(_ringLowColor, _ringHighColor, t);
             _ring.startColor = ringColor;
             _ring.endColor = ringColor;
+        }
+
+        public void SetBadgeVisible(bool visible)
+        {
+            _forciblyHidden = !visible;
+            if (_badgeRoot != null)
+                _badgeRoot.SetActive(visible && !_forciblyHidden);
+
+            if (visible)
+            {
+                _lastSuppression = int.MinValue;
+                Refresh();
+            }
         }
 
         public static SquadOfSteelSuppressionIndicator For(UnitGO owner)
@@ -299,6 +339,7 @@ namespace SquadOfSteelMod.Combat
                     continue;
 
                 indicator._lastSuppression = int.MinValue;
+                SquadMovementRuntime.Resync(indicator._owner);
                 indicator.Refresh();
             }
         }

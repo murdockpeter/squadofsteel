@@ -61,8 +61,14 @@ namespace SquadOfSteelMod
 
             var sb = new StringBuilder();
             int attackerSuppression = SquadOfSteelSuppression.Get(selectedUnitGO.unit);
+            var attackerMode = SquadMovementRuntime.GetMode(selectedUnitGO.unit);
             sb.AppendLine($"[SquadOfSteel] {selectedUnitGO.unit.Name} briefing");
             sb.AppendLine($" - Suppression: {attackerSuppression}");
+            sb.AppendLine($" - Movement mode: {attackerMode} (toggle {SquadOfSteelKeybindHandler.moveToggleKey})");
+            if (attackerMode == SquadMovementRuntime.MovementMode.Move)
+            {
+                sb.AppendLine("   - Move mode: +3 AP, incoming fire +15% hit chance / +20% dmg, own fire -12% accuracy.");
+            }
             sb.AppendLine($" - Combat debug: {(SquadCombatRuntime.DebugEnabled ? "enabled" : "disabled")} (toggle {SquadOfSteelKeybindHandler.debugToggleKey})");
 
             var targetedUnitGO = selectedUnitGO.targetedUnitGO;
@@ -73,6 +79,7 @@ namespace SquadOfSteelMod
                 bool hasLoS = LineOfSightService.HasLineOfSight(selectedUnitGO, targetTile);
                 int distance = HexGridHelper.GetDistance(attackerTile, targetTile);
                 int targetSuppression = SquadOfSteelSuppression.Get(targetedUnitGO.unit);
+                var targetMode = SquadMovementRuntime.GetMode(targetedUnitGO.unit);
                 float hitChance = SquadOfSteelCombatMath.ComputeHitChance(
                     selectedUnitGO.unit,
                     selectedUnitGO,
@@ -87,10 +94,12 @@ namespace SquadOfSteelMod
                 int damageOnHit = SquadOfSteelCombatMath.ComputeDamageOnHit(
                     selectedUnitGO.unit.FinalDamage > 0 ? selectedUnitGO.unit.FinalDamage : selectedUnitGO.unit.BaseSoftDamage,
                     distance,
-                    targetSuppression);
+                    targetSuppression,
+                    targetedUnitGO.unit);
 
                 sb.AppendLine($" - Target: {targetedUnitGO.unit.Name}");
                 sb.AppendLine($"   - Suppression: {targetSuppression}");
+                sb.AppendLine($"   - Movement mode: {targetMode}");
                 sb.AppendLine($"   - Distance: {distance} hex");
                 sb.AppendLine($"   - Line of sight: {(hasLoS ? "clear" : "blocked")}");
                 sb.AppendLine($"   - Hit chance: {Mathf.RoundToInt(hitChance * 100f)}%");

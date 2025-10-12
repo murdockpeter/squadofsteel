@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using SquadOfSteelMod;
 
 namespace SquadOfSteelMod.Combat
 {
@@ -355,10 +356,20 @@ namespace SquadOfSteelMod.Combat
             chance -= Mathf.Clamp01(attackerSuppression / 100f) * 0.45f;
             chance += Mathf.Clamp01(targetSuppression / 100f) * 0.25f;
 
+            if (attacker != null && SquadMovementRuntime.GetMode(attacker) == SquadMovementRuntime.MovementMode.Move)
+            {
+                chance -= SquadMovementRuntime.AttackerPenalty;
+            }
+
+            if (targetGO?.unit != null && SquadMovementRuntime.GetMode(targetGO.unit) == SquadMovementRuntime.MovementMode.Move)
+            {
+                chance += SquadMovementRuntime.IncomingHitChanceBonus;
+            }
+
             return Mathf.Clamp(chance, 0.05f, 0.95f);
         }
 
-        public static int ComputeDamageOnHit(int baseDamage, int distance, int targetSuppression)
+        public static int ComputeDamageOnHit(int baseDamage, int distance, int targetSuppression, Unit targetUnit = null)
         {
             if (baseDamage <= 0)
                 return 0;
@@ -371,6 +382,11 @@ namespace SquadOfSteelMod.Combat
             }
 
             damage *= 1f + Mathf.Clamp01(targetSuppression / 100f) * 0.35f;
+
+            if (targetUnit != null && SquadMovementRuntime.GetMode(targetUnit) == SquadMovementRuntime.MovementMode.Move)
+            {
+                damage *= SquadMovementRuntime.IncomingDamageMultiplier;
+            }
 
             return Mathf.Max(0, Mathf.RoundToInt(damage));
         }

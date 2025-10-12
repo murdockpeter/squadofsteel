@@ -30,6 +30,7 @@ namespace SquadOfSteelMod
         {
             public Dictionary<int, int> Suppression { get; set; } = new Dictionary<int, int>();
             public bool DebugEnabled { get; set; }
+            public Dictionary<int, SquadMovementRuntime.MovementMode> MovementModes { get; set; } = new Dictionary<int, SquadMovementRuntime.MovementMode>();
         }
 
         public static bool IsLoaded => _loaded;
@@ -50,6 +51,7 @@ namespace SquadOfSteelMod
             LoadFromBag();
             SquadOfSteelSuppression.InitializeFromSave(_state.Suppression);
             SquadCombatRuntime.SetDebugEnabled(_state.DebugEnabled);
+            SquadMovementRuntime.InitializeFromSave(_state.MovementModes);
 
             Debug.Log($"[SquadOfSteel] State storage ready (suppression entries: {_state.Suppression.Count})");
         }
@@ -80,6 +82,7 @@ namespace SquadOfSteelMod
             {
                 _state.Suppression = SquadOfSteelSuppression.ExportState();
                 _state.DebugEnabled = SquadCombatRuntime.DebugEnabled;
+                _state.MovementModes = SquadMovementRuntime.ExportState();
                 string json = JsonConvert.SerializeObject(_state, s_jsonSettings);
                 GameData.Instance.ModDataBag.TrySet(StorageKey, json, preferKnownOverUnknown: true);
                 _dirty = false;

@@ -14,6 +14,7 @@ namespace SquadOfSteelMod
     {
         public static KeyCode toggleKey = KeyCode.K;
         public static KeyCode debugToggleKey = KeyCode.F9;
+        public static KeyCode moveToggleKey = KeyCode.V;
 
         static Type _inputType;
         static MethodInfo _getKeyDown;
@@ -43,6 +44,18 @@ namespace SquadOfSteelMod
             {
                 Debug.Log($"[SquadOfSteel] Toggle key '{toggleKey}' pressed");
                 SquadOfSteelUI.TogglePanel();
+            }
+
+            if (GetKeyDown(moveToggleKey))
+            {
+                var selectedUnit = MapGO.selectedUnitGO;
+                if (selectedUnit != null)
+                {
+                    if (!SquadMovementRuntime.TryToggleMoveMode(selectedUnit))
+                    {
+                        Debug.Log("[SquadOfSteel] Move mode toggle failed (see prior log).");
+                    }
+                }
             }
 
             if (GetKeyDown(debugToggleKey))
