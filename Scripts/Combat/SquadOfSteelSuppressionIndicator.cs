@@ -247,26 +247,16 @@ namespace SquadOfSteelMod.Combat
             if (_owner?.unit == null)
                 return;
 
-            CreateBadge();
-            if (_badgeRoot == null)
-                return;
-
             if (_forciblyHidden)
             {
-                if (_badgeRoot.activeSelf)
+                if (_badgeRoot != null && _badgeRoot.activeSelf)
                     _badgeRoot.SetActive(false);
                 return;
             }
 
-            if (!_badgeRoot.activeSelf)
-                _badgeRoot.SetActive(true);
-
-            if (_label == null || _ring == null)
-                return;
-
             if (SquadMovementRuntime.GetMode(_owner.unit) == SquadMovementRuntime.MovementMode.Move)
             {
-                if (_badgeRoot.activeSelf)
+                if (_badgeRoot != null && _badgeRoot.activeSelf)
                     _badgeRoot.SetActive(false);
                 return;
             }
@@ -279,11 +269,20 @@ namespace SquadOfSteelMod.Combat
 
             if (suppression <= 0)
             {
-                _label.text = string.Empty;
-                if (_badgeRoot.activeSelf)
+                if (_label != null)
+                    _label.text = string.Empty;
+                if (_badgeRoot != null && _badgeRoot.activeSelf)
                     _badgeRoot.SetActive(false);
                 return;
             }
+
+            // Only create badge if we have suppression > 0
+            CreateBadge();
+            if (_badgeRoot == null)
+                return;
+
+            if (_label == null || _ring == null)
+                return;
 
             if (!_badgeRoot.activeSelf)
                 _badgeRoot.SetActive(true);

@@ -39,11 +39,47 @@ namespace SquadOfSteelMod
         static readonly Dictionary<string, Unit> s_unitDefinitions = new Dictionary<string, Unit>(StringComparer.OrdinalIgnoreCase);
         static readonly HashSet<string> s_missingUnitDefinitions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         static readonly HashSet<string> s_missingTransportMappings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        static bool s_officialUnitsLoadAttempted;
+        static bool s_loggedOfficialUnitsLoadFailure;
+        static bool s_loggedOfficialUnitCount;
 
         static bool s_mappingsLoaded;
+        static bool s_traceMoveMode;
+        static readonly HashSet<int> s_activelyChangingMode = new HashSet<int>();
 
         static readonly PropertyInfo s_filterTypeProp = AccessTools.Property(typeof(Unit), "FilterType");
         static readonly PropertyInfo s_typeProp = AccessTools.Property(typeof(Unit), "Type");
+
+        static void Trace(Unit unit, string message)
+        {
+            if (!s_traceMoveMode)
+                return;
+
+            string name = unit?.Name ?? "<null>";
+            int id = unit?.ID ?? -1;
+            Debug.Log($"[SquadOfSteel][MoveMode] {name} (ID:{id}) - {message}");
+        }
+
+        static void Trace(UnitGO unitGO, string message)
+        {
+            if (!s_traceMoveMode)
+                return;
+
+            string name = unitGO?.unit?.Name ?? "<null>";
+            int id = unitGO?.unit?.ID ?? -1;
+            Debug.Log($"[SquadOfSteel][MoveMode] {name} (ID:{id}) - {message}");
+        }
+
+        public static bool TraceEnabled => s_traceMoveMode;
+
+        public static void SetTraceEnabled(bool enabled)
+        {
+            if (s_traceMoveMode == enabled)
+                return;
+
+            s_traceMoveMode = enabled;
+            Debug.Log($"[SquadOfSteel][MoveMode] Diagnostic tracing {(enabled ? "ENABLED" : "disabled")}.");
+        }
 
         public static float IncomingHitChanceBonus => MoveModeIncomingHitChanceBonus;
         public static float IncomingDamageMultiplier => MoveModeIncomingDamageMultiplier;
@@ -125,9 +161,13 @@ namespace SquadOfSteelMod
                 return false;
 
             var unit = unitGO.unit;
+            Trace(unit, $"TrySetMode requested -> {desired}");
             MovementMode current = GetMode(unit);
             if (current == desired)
+            {
+                Trace(unit, $"Already in {desired}; no change required.");
                 return true;
+            }
 
             if (desired == MovementMode.Move && !EligibleForMoveMode(unit))
             {
@@ -136,20 +176,26 @@ namespace SquadOfSteelMod
                     string hint = $"{unit.Name} cannot enter move mode (requires foot infantry with inherent transport).";
                     SquadCombatRuntime.NotifyBlocked(unitGO, hint);
                 }
+                Trace(unit, "Move mode denied - unit not eligible.");
                 return false;
             }
 
             bool success = desired == MovementMode.Move ? EnterMoveMode(unitGO) : ExitMoveMode(unitGO);
             if (!success)
+            {
+                Trace(unit, $"TrySetMode -> {desired} failed.");
                 return false;
+            }
 
             if (desired == MovementMode.Move)
             {
                 s_modes[unit.ID] = MovementMode.Move;
+                Trace(unit, "Mode recorded as MOVE.");
             }
             else
             {
                 s_modes.Remove(unit.ID);
+                Trace(unit, "Mode entry removed (COMBAT).");
             }
 
             SquadOfSteelState.MarkDirty();
@@ -159,6 +205,7 @@ namespace SquadOfSteelMod
                 Debug.Log($"[SquadOfSteel] {unit.Name} switched to {(desired == MovementMode.Move ? "MOVE" : "COMBAT")} mode.");
             }
 
+            Trace(unit, $"TrySetMode -> {desired} complete.");
             return true;
         }
 
@@ -167,14 +214,35 @@ namespace SquadOfSteelMod
             if (unitGO?.unit == null)
                 return;
 
+            // Prevent recursion if we're already changing mode for this unit
+            if (s_activelyChangingMode.Contains(unitGO.unit.ID))
+            {
+                Trace(unitGO, "Resync: Skipping - mode change already in progress.");
+                return;
+            }
+
             MovementMode mode = GetMode(unitGO.unit);
+
+            // Only perform transport swap if needed - avoid calling Enter/ExitMoveMode
+            // which trigger RefreshMovementOverlay and cause infinite loops via UpdateCounter
+            var state = s_transportStates.TryGetValue(unitGO.unit.ID, out var ts) ? ts : null;
+            if (state != null && state.CurrentForm == mode)
+            {
+                // Already in correct state, no action needed
+                Trace(unitGO, $"Resync: Already in {mode}, skipping to avoid recursion.");
+                return;
+            }
+
+            // Only call the full Enter/Exit if we actually need to change state
             if (mode == MovementMode.Move)
             {
-                EnterMoveMode(unitGO);
+                // Don't call EnterMoveMode - just ensure transport state without visual refresh
+                TryApplyTransportSwap(unitGO, MovementMode.Move);
             }
             else
             {
-                ExitMoveMode(unitGO);
+                // Don't call ExitMoveMode - just ensure transport state without visual refresh
+                TryApplyTransportSwap(unitGO, MovementMode.Combat);
             }
         }
 
@@ -195,15 +263,29 @@ namespace SquadOfSteelMod
             if (unitGO?.unit == null)
                 return false;
 
-            bool swapped = TryApplyTransportSwap(unitGO, MovementMode.Move);
-            bool success = swapped || ApplyLegacyMoveModeBuff(unitGO.unit);
-            if (!success)
-                return false;
+            s_activelyChangingMode.Add(unitGO.unit.ID);
+            try
+            {
+                Trace(unitGO, "Entering MOVE mode.");
+                bool swapped = TryApplyTransportSwap(unitGO, MovementMode.Move);
+                bool success = swapped || ApplyLegacyMoveModeBuff(unitGO.unit);
+                if (!success)
+                {
+                    Trace(unitGO, "Move mode entry failed (transport swap false, legacy fallback unavailable).");
+                    return false;
+                }
 
-            HideSuppressionIndicator(unitGO);
-            ShowMoveIndicator(unitGO, true);
-            RefreshMovementOverlay(unitGO);
-            return true;
+                Trace(unitGO, swapped ? "Transport swap applied for move mode." : "Legacy move-mode buffs applied (no mapping).");
+                HideSuppressionIndicator(unitGO);
+                ShowMoveIndicator(unitGO, true);
+                RefreshMovementOverlay(unitGO);
+                Trace(unitGO, "Move mode visuals refreshed.");
+                return true;
+            }
+            finally
+            {
+                s_activelyChangingMode.Remove(unitGO.unit.ID);
+            }
         }
 
         static bool ExitMoveMode(UnitGO unitGO)
@@ -212,17 +294,32 @@ namespace SquadOfSteelMod
                 return false;
 
             var unit = unitGO.unit;
-            bool swapped = TryApplyTransportSwap(unitGO, MovementMode.Combat);
-            if (!swapped)
+            s_activelyChangingMode.Add(unit.ID);
+            try
             {
-                RemoveActionPointBuff(unit);
-                RemoveMovementBuff(unit);
-            }
+                Trace(unitGO, "Exiting MOVE mode.");
+                bool swapped = TryApplyTransportSwap(unitGO, MovementMode.Combat);
+                if (!swapped)
+                {
+                    RemoveActionPointBuff(unit);
+                    RemoveMovementBuff(unit);
+                    Trace(unit, "Legacy move-mode buffs removed.");
+                }
+                else
+                {
+                    Trace(unit, "Transport swap reverted to combat form.");
+                }
 
-            ShowSuppressionIndicator(unitGO);
-            ShowMoveIndicator(unitGO, false);
-            RefreshMovementOverlay(unitGO);
-            return true;
+                ShowSuppressionIndicator(unitGO);
+                ShowMoveIndicator(unitGO, false);
+                RefreshMovementOverlay(unitGO);
+                Trace(unitGO, "Combat mode visuals refreshed.");
+                return true;
+            }
+            finally
+            {
+                s_activelyChangingMode.Remove(unit.ID);
+            }
         }
 
         static bool ApplyLegacyMoveModeBuff(Unit unit)
@@ -295,15 +392,20 @@ namespace SquadOfSteelMod
         {
             var indicator = SquadMoveModeIndicator.For(unitGO);
             if (indicator == null)
+            {
+                Trace(unitGO, "Move indicator unavailable (component missing).");
                 return;
+            }
 
             if (visible)
             {
                 indicator.Show();
+                Trace(unitGO, "Move indicator Show() invoked.");
             }
             else
             {
                 indicator.Hide();
+                Trace(unitGO, "Move indicator Hide() invoked.");
             }
         }
 
@@ -409,12 +511,17 @@ namespace SquadOfSteelMod
                 return false;
 
             var unit = unitGO.unit;
+            Trace(unitGO, $"TryApplyTransportSwap -> {desired}");
             var state = EnsureTransportState(unit);
             if (state == null)
+            {
+                Trace(unitGO, "EnsureTransportState returned null; swap aborted.");
                 return false;
+            }
 
             if (desired == state.CurrentForm)
             {
+                Trace(unitGO, $"Already in {desired}; refreshing snapshots only.");
                 if (desired == MovementMode.Move && state.CarrierSnapshot != null)
                 {
                     state.CarrierSnapshot.SyncFromNetwork(unit, false);
@@ -424,41 +531,52 @@ namespace SquadOfSteelMod
                     state.InfantrySnapshot.SyncFromNetwork(unit, false);
                 }
 
-                RefreshTransportVisuals(unitGO, desired);
+                Trace(unitGO, $"No form change needed; skipping visual refresh to avoid recursion.");
                 return true;
             }
 
             if (desired == MovementMode.Move)
             {
+                Trace(unitGO, "Building carrier snapshot for MOVE mode.");
                 if (state.InfantrySnapshot == null)
                     state.InfantrySnapshot = unit.Clone(false);
 
                 state.InfantrySnapshot.SyncFromNetwork(unit, false);
 
                 if (!UpdateCarrierSnapshotFromInfantry(state))
+                {
+                    Trace(unitGO, "UpdateCarrierSnapshotFromInfantry failed.");
                     return false;
+                }
 
                 unit.SyncFromNetwork(state.CarrierSnapshot, true);
                 state.CurrentForm = MovementMode.Move;
                 state.CarrierSnapshot.SyncFromNetwork(unit, false);
+                Trace(unitGO, "Unit synced from carrier snapshot.");
             }
             else
             {
+                Trace(unitGO, "Restoring infantry snapshot for COMBAT mode.");
                 if (state.CarrierSnapshot == null)
                     state.CarrierSnapshot = unit.Clone(false);
 
                 state.CarrierSnapshot.SyncFromNetwork(unit, false);
 
                 if (!UpdateInfantrySnapshotFromCarrier(state))
+                {
+                    Trace(unitGO, "UpdateInfantrySnapshotFromCarrier failed.");
                     return false;
+                }
 
                 unit.SyncFromNetwork(state.InfantrySnapshot, true);
                 state.CurrentForm = MovementMode.Combat;
                 state.InfantrySnapshot.SyncFromNetwork(unit, false);
+                Trace(unitGO, "Unit synced from infantry snapshot.");
             }
 
-            RefreshTransportVisuals(unitGO, desired);
             unitGO.UpdateCounter();
+            RefreshTransportVisuals(unitGO, desired);
+            Trace(unitGO, $"Transport swap complete -> {desired}.");
             SquadOfSteelSuppressionIndicator.For(unitGO)?.Refresh();
             return true;
         }
@@ -470,6 +588,7 @@ namespace SquadOfSteelMod
 
             try
             {
+                Trace(unitGO, "Refreshing UnitGO visuals (SetSprite & ManageTwoUnitsIndicator).");
                 unitGO.SetSprite();
                 unitGO.ManageTwoUnitsIndicator();
             }
@@ -481,11 +600,51 @@ namespace SquadOfSteelMod
             if (mode == MovementMode.Move)
             {
                 ShowMoveIndicator(unitGO, true);
+                Trace(unitGO, "Move indicator toggled ON.");
             }
             else
             {
                 ShowMoveIndicator(unitGO, false);
+                Trace(unitGO, "Move indicator toggled OFF.");
             }
+        }
+
+        static bool EnsureMappingPrototypes(CarrierMapping mapping)
+        {
+            if (mapping == null)
+                return false;
+
+            bool resolved = true;
+
+            if (mapping.InfantryPrototype == null)
+            {
+                if (TryGetUnitDefinition(mapping.InfantryName, out var infantryDefinition))
+                {
+                    mapping.InfantryPrototype = infantryDefinition.Clone(false);
+                    Trace(mapping.InfantryPrototype, $"Infantry prototype cached for mapping -> '{mapping.CarrierName}'.");
+                }
+                else
+                {
+                    resolved = false;
+                    Debug.LogWarning($"[SquadOfSteel] Transport mapping infantry prototype unresolved for '{mapping.InfantryName}'.");
+                }
+            }
+
+            if (mapping.CarrierPrototype == null)
+            {
+                if (TryGetUnitDefinition(mapping.CarrierName, out var carrierDefinition))
+                {
+                    mapping.CarrierPrototype = carrierDefinition.Clone(false);
+                    Trace(mapping.CarrierPrototype, $"Carrier prototype cached for mapping from '{mapping.InfantryName}'.");
+                }
+                else
+                {
+                    resolved = false;
+                    Debug.LogWarning($"[SquadOfSteel] Transport mapping carrier prototype unresolved for '{mapping.CarrierName}'.");
+                }
+            }
+
+            return resolved;
         }
 
         static TransportState EnsureTransportState(Unit unit)
@@ -496,11 +655,23 @@ namespace SquadOfSteelMod
             if (!TryGetMappingForUnit(unit, out var mapping))
             {
                 s_transportStates.Remove(unit.ID);
+                Trace(unit, "No transport mapping available; using legacy move mode.");
+                return null;
+            }
+
+            if (!EnsureMappingPrototypes(mapping))
+            {
+                Debug.LogWarning($"[SquadOfSteel] Transport mapping '{mapping.InfantryName}' -> '{mapping.CarrierName}' missing prototypes; move-mode swap disabled.");
+                s_transportStates.Remove(unit.ID);
+                Trace(unit, "Transport mapping prototypes unresolved.");
                 return null;
             }
 
             if (s_transportStates.TryGetValue(unit.ID, out var existing))
+            {
+                Trace(unit, "Existing transport state re-used.");
                 return existing;
+            }
 
             var state = new TransportState
             {
@@ -511,6 +682,7 @@ namespace SquadOfSteelMod
             bool isCarrier = string.Equals(unit.Name, mapping.CarrierName, StringComparison.OrdinalIgnoreCase);
             if (isCarrier)
             {
+                Trace(unit, "Unit currently in carrier form; cloning infantry snapshot from mapping.");
                 state.CarrierSnapshot = unit.Clone(false);
                 state.InfantrySnapshot = mapping.InfantryPrototype != null
                     ? mapping.InfantryPrototype.Clone(false)
@@ -522,10 +694,12 @@ namespace SquadOfSteelMod
             }
             else
             {
+                Trace(unit, "Unit currently in infantry form; generating carrier snapshot.");
                 state.InfantrySnapshot = unit.Clone(false);
                 if (!UpdateCarrierSnapshotFromInfantry(state))
                 {
                     s_transportStates.Remove(unit.ID);
+                    Trace(unit, "Carrier snapshot generation failed.");
                     return null;
                 }
 
@@ -533,62 +707,101 @@ namespace SquadOfSteelMod
             }
 
             s_transportStates[unit.ID] = state;
+            Trace(unit, $"Transport state established. Current form: {state.CurrentForm}.");
             return state;
         }
 
         static bool UpdateCarrierSnapshotFromInfantry(TransportState state)
         {
             if (state?.InfantrySnapshot == null)
+            {
+                Trace(state?.InfantrySnapshot, "Carrier snapshot update aborted - infantry snapshot missing.");
                 return false;
+            }
 
             var mapping = state.Mapping;
             if (mapping == null)
+            {
+                Trace(state.InfantrySnapshot, "Carrier snapshot update aborted - mapping missing.");
                 return false;
+            }
+
+            if (!EnsureMappingPrototypes(mapping))
+            {
+                Trace(state.InfantrySnapshot, "Carrier snapshot update aborted - mapping prototypes missing.");
+                return false;
+            }
 
             if (state.CarrierSnapshot == null)
             {
                 state.CarrierSnapshot = mapping.CarrierPrototype != null
                     ? mapping.CarrierPrototype.Clone(false)
                     : state.InfantrySnapshot.Clone(false);
+                Trace(state.InfantrySnapshot, "Carrier snapshot cloned from mapping prototype.");
             }
-            else if (mapping.CarrierPrototype != null)
+            else
             {
-                state.CarrierSnapshot.SyncFromNetwork(mapping.CarrierPrototype, true);
+                // Carrier snapshot already exists - keep it and just update it from infantry
+                Trace(state.InfantrySnapshot, "Carrier snapshot exists; will update from infantry state.");
             }
 
             if (state.CarrierSnapshot == null)
+            {
+                Trace(state.InfantrySnapshot, "Carrier snapshot remained null after sync.");
                 return false;
+            }
 
+            // Update carrier snapshot with current infantry's persistent state and resources
             CopyPersistentState(state.InfantrySnapshot, state.CarrierSnapshot);
             ApplyResourceRatios(state.InfantrySnapshot, state.CarrierSnapshot);
+            Trace(state.InfantrySnapshot, "Carrier snapshot updated from infantry snapshot.");
             return true;
         }
 
         static bool UpdateInfantrySnapshotFromCarrier(TransportState state)
         {
             if (state?.CarrierSnapshot == null)
+            {
+                Trace(state?.CarrierSnapshot, "Infantry snapshot update aborted - carrier snapshot missing.");
                 return false;
+            }
 
             var mapping = state.Mapping;
             if (mapping == null)
+            {
+                Trace(state?.CarrierSnapshot, "Infantry snapshot update aborted - mapping missing.");
                 return false;
+            }
+
+            if (!EnsureMappingPrototypes(mapping))
+            {
+                Trace(state?.CarrierSnapshot, "Infantry snapshot update aborted - mapping prototypes missing.");
+                return false;
+            }
 
             if (state.InfantrySnapshot == null)
             {
                 state.InfantrySnapshot = mapping.InfantryPrototype != null
                     ? mapping.InfantryPrototype.Clone(false)
                     : state.CarrierSnapshot.Clone(false);
+                Trace(state.CarrierSnapshot, "Infantry snapshot cloned from mapping prototype.");
             }
-            else if (mapping.InfantryPrototype != null)
+            else
             {
-                state.InfantrySnapshot.SyncFromNetwork(mapping.InfantryPrototype, true);
+                // Infantry snapshot already exists - keep it and just update it from carrier
+                Trace(state.CarrierSnapshot, "Infantry snapshot exists; will update from carrier state.");
             }
 
             if (state.InfantrySnapshot == null)
+            {
+                Trace(state.CarrierSnapshot, "Infantry snapshot remained null after sync.");
                 return false;
+            }
 
+            // Update infantry snapshot with current carrier's persistent state and resources
             CopyPersistentState(state.CarrierSnapshot, state.InfantrySnapshot);
             ApplyResourceRatios(state.CarrierSnapshot, state.InfantrySnapshot);
+            Trace(state.CarrierSnapshot, "Infantry snapshot updated from carrier snapshot.");
             return true;
         }
 
@@ -610,6 +823,7 @@ namespace SquadOfSteelMod
             if (s_missingTransportMappings.Add(name))
             {
                 Debug.Log($"[SquadOfSteel] No transport mapping configured for '{name}'. Falling back to legacy move-mode buffs.");
+                Trace(unit, "No transport mapping configured (logged once).");
             }
 
             return false;
@@ -626,6 +840,7 @@ namespace SquadOfSteelMod
 
             try
             {
+                EnsureOfficialUnitsReady();
                 string configPath = ResolveTransportMappingPath();
                 if (string.IsNullOrEmpty(configPath) || !File.Exists(configPath))
                 {
@@ -702,19 +917,21 @@ namespace SquadOfSteelMod
                 infantryName.StartsWith("_", StringComparison.Ordinal))
                 return;
 
-            if (!TryGetUnitDefinition(infantryName, out var infantryDefinition))
-                return;
-
-            if (!TryGetUnitDefinition(carrierName, out var carrierDefinition))
-                return;
-
             var mapping = new CarrierMapping
             {
                 InfantryName = infantryName,
-                CarrierName = carrierName,
-                InfantryPrototype = infantryDefinition.Clone(false),
-                CarrierPrototype = carrierDefinition.Clone(false)
+                CarrierName = carrierName
             };
+
+            if (TryGetUnitDefinition(infantryName, out var infantryDefinition))
+            {
+                mapping.InfantryPrototype = infantryDefinition.Clone(false);
+            }
+
+            if (TryGetUnitDefinition(carrierName, out var carrierDefinition))
+            {
+                mapping.CarrierPrototype = carrierDefinition.Clone(false);
+            }
 
             s_mappingsByInfantry[infantryName] = mapping;
             s_mappingsByCarrier[carrierName] = mapping;
@@ -735,6 +952,7 @@ namespace SquadOfSteelMod
                 if (s_missingUnitDefinitions.Add(unitName))
                 {
                     Debug.LogWarning($"[SquadOfSteel] Could not find unit definition '{unitName}' while loading transport mappings.");
+                    LogUnitLookupHints(unitName);
                 }
 
                 return false;
@@ -747,13 +965,30 @@ namespace SquadOfSteelMod
 
         static Unit FindUnitDefinitionInternal(string unitName)
         {
+            if (string.IsNullOrWhiteSpace(unitName))
+                return null;
+
             try
             {
                 var official = OfficialUnits.GetInstance();
                 var units = official?.Units;
-                if (units != null)
+
+                if (units == null || units.Count == 0)
                 {
-                    var match = units.FirstOrDefault(u => string.Equals(u.Name, unitName, StringComparison.OrdinalIgnoreCase));
+                    EnsureOfficialUnitsReady();
+                    official = OfficialUnits.GetInstance();
+                    units = official?.Units;
+                }
+
+                if (units != null && units.Count > 0)
+                {
+                    if (!s_loggedOfficialUnitCount)
+                    {
+                        s_loggedOfficialUnitCount = true;
+                        Debug.Log($"[SquadOfSteel] Official unit catalog populated ({units.Count} entries).");
+                    }
+
+                    var match = units.FirstOrDefault(u => string.Equals(u?.Name, unitName, StringComparison.OrdinalIgnoreCase));
                     if (match != null)
                         return match;
                 }
@@ -763,7 +998,142 @@ namespace SquadOfSteelMod
                 Debug.LogWarning($"[SquadOfSteel] Failed to query official units for '{unitName}': {ex.Message}");
             }
 
+            try
+            {
+                var mapUnits = MapGO.instance?.listOfAllUnits;
+                if (mapUnits != null)
+                {
+                    var match = mapUnits.FirstOrDefault(u => u != null && string.Equals(u.Name, unitName, StringComparison.OrdinalIgnoreCase));
+                    if (match != null)
+                        return match;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SquadOfSteel] Failed to inspect map units for '{unitName}': {ex.Message}");
+            }
+
             return null;
+        }
+
+        static void EnsureOfficialUnitsReady()
+        {
+            try
+            {
+                var official = OfficialUnits.GetInstance();
+                var units = official?.Units;
+
+                if (units != null && units.Count > 0)
+                {
+                    if (!s_loggedOfficialUnitCount)
+                    {
+                        s_loggedOfficialUnitCount = true;
+                        Debug.Log($"[SquadOfSteel] Official unit catalog populated ({units.Count} entries).");
+                    }
+                    return;
+                }
+
+                if (!s_officialUnitsLoadAttempted)
+                {
+                    s_officialUnitsLoadAttempted = true;
+                    try
+                    {
+                        OfficialUnits.Load();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!s_loggedOfficialUnitsLoadFailure)
+                        {
+                            s_loggedOfficialUnitsLoadFailure = true;
+                            Debug.LogWarning($"[SquadOfSteel] Unable to load official unit catalog: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!s_loggedOfficialUnitsLoadFailure)
+                {
+                    s_loggedOfficialUnitsLoadFailure = true;
+                    Debug.LogWarning($"[SquadOfSteel] Encountered error while ensuring official units are ready: {ex.Message}");
+                }
+            }
+        }
+
+        static void LogUnitLookupHints(string unitName)
+        {
+            try
+            {
+                var normalizedTarget = NormalizeUnitName(unitName);
+                if (string.IsNullOrEmpty(normalizedTarget))
+                    return;
+
+                var suggestions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                var official = OfficialUnits.GetInstance();
+                var units = official?.Units;
+                if (units != null)
+                {
+                    foreach (var unit in units)
+                    {
+                        if (unit?.Name == null)
+                            continue;
+
+                        if (IsSimilarUnitName(normalizedTarget, unit.Name))
+                            suggestions.Add(unit.Name);
+                    }
+                }
+
+                var mapUnits = MapGO.instance?.listOfAllUnits;
+                if (mapUnits != null)
+                {
+                    foreach (var unit in mapUnits)
+                    {
+                        if (unit?.Name == null)
+                            continue;
+
+                        if (IsSimilarUnitName(normalizedTarget, unit.Name))
+                            suggestions.Add(unit.Name);
+                    }
+                }
+
+                if (suggestions.Count > 0)
+                {
+                    Debug.Log($"[SquadOfSteel] Unit lookup hints for '{unitName}': {string.Join(", ", suggestions.Take(6))}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SquadOfSteel] Failed to produce unit lookup hints for '{unitName}': {ex.Message}");
+            }
+        }
+
+        static bool IsSimilarUnitName(string normalizedTarget, string candidate)
+        {
+            if (string.IsNullOrEmpty(candidate))
+                return false;
+
+            string normalizedCandidate = NormalizeUnitName(candidate);
+            if (string.IsNullOrEmpty(normalizedCandidate))
+                return false;
+
+            if (normalizedCandidate.Contains(normalizedTarget))
+                return true;
+
+            if (normalizedTarget.Contains(normalizedCandidate))
+                return true;
+
+            return normalizedCandidate.StartsWith(normalizedTarget, StringComparison.OrdinalIgnoreCase) ||
+                   normalizedTarget.StartsWith(normalizedCandidate, StringComparison.OrdinalIgnoreCase);
+        }
+
+        static string NormalizeUnitName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            var chars = value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray();
+            return new string(chars);
         }
 
         static void CopyPersistentState(Unit source, Unit target)

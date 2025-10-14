@@ -1,0 +1,8 @@
+{
+  "modName": "Squad Of Steel",
+  "modVersion": "0.3.0",
+  "modAuthor": "Peter G. Robbins",
+  "supportedGameVersion": "8.0.4+",
+  "dependencies": "Requires Harmony 2.x (bundled).",
+  "modDescription": "Adds squad-scale combat with suppression tracking, LOS-aware hit chances, and transport-enabled move mode for infantry."
+}

@@ -29,11 +29,15 @@ The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
 ## Installation & Usage
 
 1. Build the project or grab the freshly built DLL from `output\net48`.
-2. Copy it to your mods folder, e.g.:
-   ```powershell
-   Copy-Item .\output\net48\SquadOfSteel.dll `
-     "$Env:LOCALAPPDATA\..\LocalLow\War Frogs Studio\Hex of Steel\MODS\Squad Of Steel\Libraries\SquadOfSteel.dll" -Force
-   ```
+2. Deploy the build output:
+   - Preferred: run `pwsh .\Scripts\DeployToGame.ps1` (or `powershell` on Windows) to copy both the DLL and `Assets\transport-mappings.json` into the game mod folder.
+   - Manual copy, if you prefer explicit commands:
+     ```powershell
+     Copy-Item .\output\net48\SquadOfSteel.dll `
+       "$Env:LOCALAPPDATA\..\LocalLow\War Frogs Studio\Hex of Steel\MODS\Squad Of Steel\Libraries\SquadOfSteel.dll" -Force
+     Copy-Item .\output\net48\Assets\transport-mappings.json `
+       "$Env:LOCALAPPDATA\..\LocalLow\War Frogs Studio\Hex of Steel\MODS\Squad Of Steel\Libraries\transport-mappings.json" -Force
+     ```
 3. Launch Hex of Steel, open the Mods menu, and enable **Squad Of Steel**.
 4. Optional debug controls:
    - `K` – dumps an at-a-glance summary (suppression, estimated hit chance, expected damage) for the selected vs targeted units to the console.
@@ -42,6 +46,10 @@ The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
      - Floating popups summarising hits/misses (hit chance, roll, damage).
      - Player.log entries (including HP before/after, suppression deltas, overlay diagnostics).
 5. Play as normal. Direct-fire attacks can miss, suppression numbers float beside counters, and suppression decays each turn while persisting across saves.
+
+### Reference Data
+
+- Run `pwsh .\Scripts\ExportOfficialUnitNames.ps1` to dump the official unit catalog to `output\official-units-export.json` / `.txt`. Pass `-GameInstallPath` if Hex of Steel is not installed in the default Steam location.
 
 ## GitHub Kickoff (optional)
 
