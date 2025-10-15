@@ -42,7 +42,7 @@ The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
      ```
 3. **Configure transport mappings** (optional):
    - Edit `Assets\transport-mappings.json` to map infantry unit names to their carrier vehicles.
-   - **Nationality-specific mappings**: The mod now supports different carrier vehicles per nationality. For example:
+   - **Nationality-specific mappings**: The mod supports different carrier vehicles per nationality. For example:
      ```json
      "Paratroopers": {
        "us": "M3 Scout Car",
@@ -55,6 +55,7 @@ The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
    - The mod automatically detects the unit's nationality (from OwnerName) and selects the appropriate carrier.
    - **Custom/Mod nationalities**: You can use ANY nationality key you want (e.g., "atlantis", "custom_faction"). The mod matches against the unit's OwnerName field using case-insensitive substring matching.
    - If no nationality-specific mapping exists, the mod falls back to the "generic" entry.
+   - **Multi-file support for custom mods**: Custom mods can provide their own `transport-mappings-modname.json` files. Squad Of Steel automatically discovers and merges all `transport-mappings*.json` files. Later files override earlier ones. See [guides/custom-mod-integration-guide.md](guides/custom-mod-integration-guide.md) for details.
    - **Backward compatibility**: The old flat format still works (e.g., `"Rangers": "M3 Scout Car"`).
 4. Launch Hex of Steel, open the Mods menu, and enable **Squad Of Steel**.
 5. In-game controls:

@@ -28,6 +28,7 @@ namespace SquadOfSteelMod
         const float MoveModeIncomingDamageMultiplier = 1.2f;
         const float MoveModeAttackPenalty = 0.12f;
         const string TransportMappingFileName = "transport-mappings.json";
+        const string TransportMappingFilePattern = "transport-mappings*.json";
 
         static readonly Dictionary<int, MovementMode> s_modes = new Dictionary<int, MovementMode>();
         static readonly Dictionary<int, int> s_apBuffs = new Dictionary<int, int>();
@@ -943,111 +944,163 @@ namespace SquadOfSteelMod
             try
             {
                 EnsureOfficialUnitsReady();
-                string configPath = ResolveTransportMappingPath();
-                if (string.IsNullOrEmpty(configPath) || !File.Exists(configPath))
+
+                // Find all transport mapping files
+                var mappingFiles = FindAllTransportMappingFiles();
+                if (mappingFiles.Count == 0)
                 {
-                    Debug.Log("[SquadOfSteel] Transport mapping file not found; using legacy move mode behaviour.");
+                    Debug.Log("[SquadOfSteel] No transport mapping files found; using legacy move mode behaviour.");
                     return;
                 }
 
-                string json = File.ReadAllText(configPath);
-                if (string.IsNullOrWhiteSpace(json))
-                    return;
+                Debug.Log($"[SquadOfSteel] Found {mappingFiles.Count} transport mapping file(s): {string.Join(", ", mappingFiles.Select(Path.GetFileName))}");
 
-                // Try to parse as nested nationality-specific format first
-                try
+                int totalLoadedCount = 0;
+
+                // Load and merge all mapping files in order
+                // Files loaded later override earlier ones
+                foreach (var filePath in mappingFiles)
                 {
-                    var nestedEntries = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-                    if (nestedEntries != null && nestedEntries.Count > 0)
+                    try
                     {
-                        int loadedCount = 0;
-                        foreach (var pair in nestedEntries)
-                        {
-                            string infantryName = pair.Key;
-
-                            // Skip comment fields
-                            if (infantryName.StartsWith("_", StringComparison.Ordinal))
-                                continue;
-
-                            // Check if this is a nested object (nationality mappings) or a simple string (legacy format)
-                            if (pair.Value is Newtonsoft.Json.Linq.JObject nestedObj)
-                            {
-                                var nationalityMappings = nestedObj.ToObject<Dictionary<string, string>>();
-                                if (nationalityMappings != null && nationalityMappings.Count > 0)
-                                {
-                                    RegisterNationalityMapping(infantryName, nationalityMappings);
-                                    loadedCount++;
-                                }
-                            }
-                            else if (pair.Value is string carrierName)
-                            {
-                                // Legacy flat format
-                                RegisterMapping(infantryName, carrierName);
-                                loadedCount++;
-                            }
-                        }
-
-                        Debug.Log($"[SquadOfSteel] Loaded {loadedCount} transport mappings (nationality-aware format).");
-                        return;
+                        int loadedCount = LoadTransportMappingFile(filePath);
+                        totalLoadedCount += loadedCount;
+                        Debug.Log($"[SquadOfSteel] Loaded {loadedCount} mapping(s) from '{Path.GetFileName(filePath)}'");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[SquadOfSteel] Failed to load '{Path.GetFileName(filePath)}': {ex.Message}");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Debug.LogWarning($"[SquadOfSteel] Failed to parse nested nationality mappings, trying legacy format: {ex.Message}");
-                }
 
-                // Fallback: try legacy flat format
-                var entries = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                if (entries == null || entries.Count == 0)
-                    return;
-
-                foreach (var pair in entries)
-                {
-                    RegisterMapping(pair.Key, pair.Value);
-                }
-
-                Debug.Log($"[SquadOfSteel] Loaded {s_mappingsByInfantry.Count} transport mappings (legacy format).");
+                Debug.Log($"[SquadOfSteel] Total: {s_mappingsByInfantry.Count} infantry types mapped with {totalLoadedCount} entries loaded.");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SquadOfSteel] Failed to load transport mappings: {ex.Message}");
+                Debug.LogError($"[SquadOfSteel] Failed to initialize transport mappings: {ex.Message}");
             }
         }
 
-        static string ResolveTransportMappingPath()
+        static List<string> FindAllTransportMappingFiles()
         {
+            var files = new List<string>();
+
             try
             {
                 string assemblyDir = Path.GetDirectoryName(typeof(SquadMovementRuntime).Assembly.Location);
                 if (string.IsNullOrEmpty(assemblyDir))
-                    return null;
+                    return files;
 
-                var candidates = new List<string>
+                var searchLocations = new List<string>
                 {
-                    Path.Combine(assemblyDir, TransportMappingFileName),
-                    Path.Combine(assemblyDir, "Assets", TransportMappingFileName)
+                    assemblyDir,
+                    Path.Combine(assemblyDir, "Assets")
                 };
 
                 var parent = Directory.GetParent(assemblyDir);
                 if (parent != null)
                 {
-                    candidates.Add(Path.Combine(parent.FullName, TransportMappingFileName));
-                    candidates.Add(Path.Combine(parent.FullName, "Assets", TransportMappingFileName));
+                    searchLocations.Add(parent.FullName);
+                    searchLocations.Add(Path.Combine(parent.FullName, "Assets"));
                 }
 
-                foreach (var candidate in candidates)
+                foreach (var location in searchLocations)
                 {
-                    if (File.Exists(candidate))
-                        return candidate;
+                    if (!Directory.Exists(location))
+                        continue;
+
+                    var foundFiles = Directory.GetFiles(location, TransportMappingFilePattern, SearchOption.TopDirectoryOnly);
+                    foreach (var file in foundFiles)
+                    {
+                        if (!files.Contains(file))
+                            files.Add(file);
+                    }
+                }
+
+                // Sort files alphabetically so loading order is predictable
+                // This means transport-mappings.json loads first, then transport-mappings-custom.json, etc.
+                files.Sort(StringComparer.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SquadOfSteel] Error searching for transport mapping files: {ex.Message}");
+            }
+
+            return files;
+        }
+
+        static int LoadTransportMappingFile(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                return 0;
+
+            string json = File.ReadAllText(filePath);
+            if (string.IsNullOrWhiteSpace(json))
+                return 0;
+
+            int loadedCount = 0;
+
+            // Try to parse as nested nationality-specific format first
+            try
+            {
+                var nestedEntries = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                if (nestedEntries != null && nestedEntries.Count > 0)
+                {
+                    foreach (var pair in nestedEntries)
+                    {
+                        string infantryName = pair.Key;
+
+                        // Skip comment fields
+                        if (infantryName.StartsWith("_", StringComparison.Ordinal))
+                            continue;
+
+                        // Check if this is a nested object (nationality mappings) or a simple string (legacy format)
+                        if (pair.Value is Newtonsoft.Json.Linq.JObject nestedObj)
+                        {
+                            var nationalityMappings = nestedObj.ToObject<Dictionary<string, string>>();
+                            if (nationalityMappings != null && nationalityMappings.Count > 0)
+                            {
+                                RegisterNationalityMapping(infantryName, nationalityMappings);
+                                loadedCount++;
+                            }
+                        }
+                        else if (pair.Value is string carrierName)
+                        {
+                            // Legacy flat format
+                            RegisterMapping(infantryName, carrierName);
+                            loadedCount++;
+                        }
+                    }
+
+                    return loadedCount;
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[SquadOfSteel] Failed to locate transport mapping file: {ex.Message}");
+                Debug.LogWarning($"[SquadOfSteel] Failed to parse as nested format, trying legacy format: {ex.Message}");
             }
 
-            return null;
+            // Fallback: try legacy flat format
+            try
+            {
+                var entries = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+                if (entries != null && entries.Count > 0)
+                {
+                    foreach (var pair in entries)
+                    {
+                        RegisterMapping(pair.Key, pair.Value);
+                        loadedCount++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[SquadOfSteel] Failed to parse transport mapping file as any known format: {ex.Message}");
+            }
+
+            return loadedCount;
         }
+
 
         static void RegisterMapping(string infantryName, string carrierName)
         {

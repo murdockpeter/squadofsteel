@@ -1,0 +1,21 @@
+{
+  "_comment": "EXAMPLE: Custom mod transport mappings",
+  "_note": "This file demonstrates how custom mods can provide their own transport mappings.",
+  "_usage": "Rename this file to 'transport-mappings-yourmodname.json' and customize the mappings below.",
+  "_loading_order": "Files are loaded alphabetically. Later files override earlier ones. For example: transport-mappings.json (base), transport-mappings-atlantis.json (mod), transport-mappings-zzz-user-overrides.json (user custom)",
+
+  "_example_custom_nationality": {
+    "Custom Elite Infantry": {
+      "atlantis": "Atlantean Hover Transport",
+      "mars": "Mars Rover APC",
+      "generic": "Willys MB"
+    }
+  },
+
+  "_example_override_existing_unit": {
+    "Rangers": {
+      "us": "Custom US Transport Vehicle Name",
+      "generic": "M3 Scout Car"
+    }
+  }
+}
