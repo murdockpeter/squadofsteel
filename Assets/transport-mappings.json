@@ -1,31 +1,191 @@
 {
-  "_comment": "Map infantry unit display names to carrier unit names. Infantry units are faction-neutral but carriers must exist for that faction!",
-  "_note": "For British/Commonwealth use Daimler/Humber, for US use M3/Willys, for Soviet use ZiS-5, for German use Sd.Kfz., for Japanese use Type 94/97",
-  "_example - US Rangers": "M3 Halftrack",
-  "AT infantry 43": "M3 Scout Car",
-  "AT infantry": "M3 Scout Car",
-  "Bicycle light infantry": "Willys MB",
-  "Cavalry": "Willys MB",
-  "Commandos": "Daimler Dingo",
-  "Conscript": "ZiS-5 x2 DshK",
-  "Desantniki": "ZiS-5 x2 DshK",
-  "Engineers": "Daimler Dingo",
-  "Fallschirmjäger": "Sd. Kfz. 251 9 Stummel",
-  "Garrison": "ZiS-5 x2 DshK",
-  "Heavy infantry": "M3 Scout Car",
-  "Imperial Guards": "Type 94 TK",
-  "Light infantry": "Daimler Dingo",
-  "Light infantry 43": "Daimler Dingo",
-  "Marines": "M3 Scout Car",
-  "Militia": "ZiS-5 x2 DshK",
-  "NKVD infantry 43": "ZiS-5 x2 DshK",
-  "NKVD infantry": "ZiS-5 x2 DshK",
-  "Panzergrenadier": "Sd. Kfz. 251 9 Stummel",
-  "Paratroopers": "Daimler Dingo",
-  "Partisans": "ZiS-5 x2 DshK",
-  "Rangers": "M3 Scout Car",
-  "Shock infantry": "ZiS-5 x2 DshK",
-  "Volksgrenadier": "Sd. Kfz. 251 9 Stummel",
-  "Volkssturm": "Sd. Kfz. 251 9 Stummel",
-  "Kavallerie": "Sd. Kfz. 251 9 Stummel"
+  "_comment": "Map infantry unit display names to carrier unit names with nationality-specific support.",
+  "_format": "Each infantry type can map to different carriers per nationality. Standard nationality keys: 'us', 'uk', 'german', 'soviet', 'japanese', 'italian', 'french', 'chinese', 'polish', 'generic'",
+  "_note_1": "Nationality-specific mappings take priority. If no nationality match is found, 'generic' is used. If 'generic' is missing, the mapping is skipped.",
+  "_note_2": "For MOD-SPECIFIC nationalities: Use ANY custom nationality key (e.g., 'atlantis', 'mars', 'custom_faction'). The mod matches against the unit's OwnerName field.",
+  "_note_3": "Nationality matching is case-insensitive and uses 'contains' logic. For example, 'British Empire' will match the 'uk' key.",
+  "_example": {
+    "Paratroopers": {
+      "us": "M3 Scout Car",
+      "uk": "Daimler Dingo",
+      "german": "Sd. Kfz. 251 9 Stummel",
+      "soviet": "ZiS-5 x2 DshK",
+      "custom_mod_nation": "Custom Transport Vehicle Name"
+    }
+  },
+
+  "AT infantry 43": {
+    "us": "M3 Scout Car",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "M3 Scout Car"
+  },
+
+  "AT infantry": {
+    "us": "M3 Scout Car",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "M3 Scout Car"
+  },
+
+  "Bicycle light infantry": {
+    "us": "Willys MB",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "Willys MB"
+  },
+
+  "Cavalry": {
+    "us": "Willys MB",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "Willys MB"
+  },
+
+  "Commandos": {
+    "uk": "Daimler Dingo",
+    "generic": "Daimler Dingo"
+  },
+
+  "Conscript": {
+    "soviet": "ZiS-5 x2 DshK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "Desantniki": {
+    "soviet": "ZiS-5 x2 DshK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "Engineers": {
+    "us": "M3 Scout Car",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "Daimler Dingo"
+  },
+
+  "Fallschirmjäger": {
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "generic": "Sd. Kfz. 251 9 Stummel"
+  },
+
+  "Garrison": {
+    "us": "M3 Scout Car",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "Heavy infantry": {
+    "us": "M3 Scout Car",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "Daimler Dingo"
+  },
+
+  "Imperial Guards": {
+    "japanese": "Type 94 TK",
+    "generic": "Type 94 TK"
+  },
+
+  "Light infantry": {
+    "us": "Willys MB",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "Daimler Dingo"
+  },
+
+  "Light infantry 43": {
+    "us": "Willys MB",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "Daimler Dingo"
+  },
+
+  "Marines": {
+    "us": "M3 Scout Car",
+    "japanese": "Type 94 TK",
+    "generic": "M3 Scout Car"
+  },
+
+  "Militia": {
+    "us": "Willys MB",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "NKVD infantry 43": {
+    "soviet": "ZiS-5 x2 DshK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "NKVD infantry": {
+    "soviet": "ZiS-5 x2 DshK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "Panzergrenadier": {
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "generic": "Sd. Kfz. 251 9 Stummel"
+  },
+
+  "Paratroopers": {
+    "us": "M3 Scout Car",
+    "uk": "Daimler Dingo",
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "soviet": "ZiS-5 x2 DshK",
+    "japanese": "Type 94 TK",
+    "generic": "Daimler Dingo"
+  },
+
+  "Partisans": {
+    "soviet": "ZiS-5 x2 DshK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "Rangers": {
+    "us": "M3 Scout Car",
+    "generic": "M3 Scout Car"
+  },
+
+  "Shock infantry": {
+    "soviet": "ZiS-5 x2 DshK",
+    "generic": "ZiS-5 x2 DshK"
+  },
+
+  "Volksgrenadier": {
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "generic": "Sd. Kfz. 251 9 Stummel"
+  },
+
+  "Volkssturm": {
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "generic": "Sd. Kfz. 251 9 Stummel"
+  },
+
+  "Kavallerie": {
+    "german": "Sd. Kfz. 251 9 Stummel",
+    "generic": "Sd. Kfz. 251 9 Stummel"
+  }
 }

@@ -9,7 +9,7 @@ Squad Of Steel augments Hex of Steel's tactical layer with squad-scale mechanics
 - **Suppression tracking** – incoming fire builds suppression on the target, reducing its future accuracy while boosting the attacker's odds. Suppression decays each turn and persists through saves.
 - **Counter overlays** – a suppression indicator sits on the right edge of each counter, re-colouring from green → yellow → red as suppression climbs.
 - **Movement mode system** – infantry units can press `V` to toggle between Combat (foot infantry) and Move (mounted in transport) modes. Units visually transform into their designated carrier vehicle, gaining movement points and action points but becoming more vulnerable to enemy fire.
-- **Transport mappings** – configure which transport vehicle each infantry type uses via `Assets/transport-mappings.json`. All unit stats (HP, XP, ammo, fuel) are preserved when toggling between modes.
+- **Transport mappings** – configure which transport vehicle each infantry type uses via `Assets/transport-mappings.json`. Supports nationality-specific mappings so US Paratroopers get M3 Scout Cars while British Paratroopers get Daimler Dingos. All unit stats (HP, XP, ammo, fuel) are preserved when toggling between modes.
 - **Combat telemetry** – enable debug mode to receive scrolling logs, popup summaries, and Player.log entries for every engagement (hit chance, roll, damage, suppression deltas, HP before/after).
 - **Damage guard rails** – if a shot is declared a miss, but the base game still shaved HP, Squad Of Steel restores the defender's HP so the result matches the roll.
 
@@ -42,8 +42,20 @@ The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
      ```
 3. **Configure transport mappings** (optional):
    - Edit `Assets\transport-mappings.json` to map infantry unit names to their carrier vehicles.
-   - **Important**: Carrier vehicles must exist for the faction playing that infantry type. For example, British infantry should use "Daimler Dingo" or "Humber Armored Car", not "M3 Scout Car" (which only exists for Americans).
-   - Default mappings support most common infantry types across all factions.
+   - **Nationality-specific mappings**: The mod now supports different carrier vehicles per nationality. For example:
+     ```json
+     "Paratroopers": {
+       "us": "M3 Scout Car",
+       "uk": "Daimler Dingo",
+       "german": "Sd. Kfz. 251 9 Stummel",
+       "soviet": "ZiS-5 x2 DshK",
+       "generic": "M3 Scout Car"
+     }
+     ```
+   - The mod automatically detects the unit's nationality (from OwnerName) and selects the appropriate carrier.
+   - **Custom/Mod nationalities**: You can use ANY nationality key you want (e.g., "atlantis", "custom_faction"). The mod matches against the unit's OwnerName field using case-insensitive substring matching.
+   - If no nationality-specific mapping exists, the mod falls back to the "generic" entry.
+   - **Backward compatibility**: The old flat format still works (e.g., `"Rangers": "M3 Scout Car"`).
 4. Launch Hex of Steel, open the Mods menu, and enable **Squad Of Steel**.
 5. In-game controls:
    - `V` – toggles the selected infantry unit between Combat and Move modes. In Move mode, the unit transforms into its carrier vehicle with increased movement/AP but higher vulnerability.

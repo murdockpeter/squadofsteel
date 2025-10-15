@@ -102,6 +102,7 @@ namespace SquadOfSteelMod
             public string CarrierName;
             public Unit InfantryPrototype;
             public Unit CarrierPrototype;
+            public Dictionary<string, string> NationalityMappings; // nationality -> carrier name
         }
 
         sealed class TransportState
@@ -732,11 +733,17 @@ namespace SquadOfSteelMod
                 return false;
             }
 
+            // CRITICAL: If carrier prototype is null after EnsureMappingPrototypes, abort to prevent corruption
+            if (mapping.CarrierPrototype == null)
+            {
+                Debug.LogError($"[SquadOfSteel] Carrier prototype null for '{mapping.CarrierName}' - aborting to prevent stat corruption.");
+                Trace(state.InfantrySnapshot, "Carrier prototype null after EnsureMappingPrototypes - corruption risk detected.");
+                return false;
+            }
+
             if (state.CarrierSnapshot == null)
             {
-                state.CarrierSnapshot = mapping.CarrierPrototype != null
-                    ? mapping.CarrierPrototype.Clone(false)
-                    : state.InfantrySnapshot.Clone(false);
+                state.CarrierSnapshot = mapping.CarrierPrototype.Clone(false);
                 Trace(state.InfantrySnapshot, "Carrier snapshot cloned from mapping prototype.");
             }
             else
@@ -747,7 +754,7 @@ namespace SquadOfSteelMod
 
             if (state.CarrierSnapshot == null)
             {
-                Trace(state.InfantrySnapshot, "Carrier snapshot remained null after sync.");
+                Trace(state.InfantrySnapshot, "Carrier snapshot remained null after clone - critical failure.");
                 return false;
             }
 
@@ -779,11 +786,17 @@ namespace SquadOfSteelMod
                 return false;
             }
 
+            // CRITICAL: If infantry prototype is null after EnsureMappingPrototypes, abort to prevent corruption
+            if (mapping.InfantryPrototype == null)
+            {
+                Debug.LogError($"[SquadOfSteel] Infantry prototype null for '{mapping.InfantryName}' - aborting to prevent stat corruption.");
+                Trace(state.CarrierSnapshot, "Infantry prototype null after EnsureMappingPrototypes - corruption risk detected.");
+                return false;
+            }
+
             if (state.InfantrySnapshot == null)
             {
-                state.InfantrySnapshot = mapping.InfantryPrototype != null
-                    ? mapping.InfantryPrototype.Clone(false)
-                    : state.CarrierSnapshot.Clone(false);
+                state.InfantrySnapshot = mapping.InfantryPrototype.Clone(false);
                 Trace(state.CarrierSnapshot, "Infantry snapshot cloned from mapping prototype.");
             }
             else
@@ -794,7 +807,7 @@ namespace SquadOfSteelMod
 
             if (state.InfantrySnapshot == null)
             {
-                Trace(state.CarrierSnapshot, "Infantry snapshot remained null after sync.");
+                Trace(state.CarrierSnapshot, "Infantry snapshot remained null after clone - critical failure.");
                 return false;
             }
 
@@ -814,19 +827,108 @@ namespace SquadOfSteelMod
             EnsureCarrierMappingsLoaded();
 
             string name = unit.Name ?? string.Empty;
-            if (s_mappingsByInfantry.TryGetValue(name, out mapping))
-                return true;
+            string nationality = GetUnitNationality(unit);
 
-            if (s_mappingsByCarrier.TryGetValue(name, out mapping))
-                return true;
+            // Try infantry lookup first
+            if (s_mappingsByInfantry.TryGetValue(name, out var baseMapping))
+            {
+                mapping = ResolveNationalityMapping(baseMapping, nationality, unit);
+                if (mapping != null)
+                    return true;
+            }
+
+            // Try carrier lookup as fallback
+            if (s_mappingsByCarrier.TryGetValue(name, out baseMapping))
+            {
+                mapping = ResolveNationalityMapping(baseMapping, nationality, unit);
+                if (mapping != null)
+                    return true;
+            }
 
             if (s_missingTransportMappings.Add(name))
             {
-                Debug.Log($"[SquadOfSteel] No transport mapping configured for '{name}'. Falling back to legacy move-mode buffs.");
+                Debug.Log($"[SquadOfSteel] No transport mapping configured for '{name}' (nationality: {nationality}). Falling back to legacy move-mode buffs.");
                 Trace(unit, "No transport mapping configured (logged once).");
             }
 
             return false;
+        }
+
+        static string GetUnitNationality(Unit unit)
+        {
+            if (unit == null)
+                return "generic";
+
+            string ownerName = unit.OwnerName ?? string.Empty;
+            string normalized = ownerName.ToLowerInvariant().Trim();
+
+            // Map common nationality names to standardized keys
+            if (normalized.Contains("us") || normalized.Contains("america") || normalized.Contains("usa") || normalized.Contains("united states"))
+                return "us";
+            if (normalized.Contains("uk") || normalized.Contains("brit") || normalized.Contains("commonwealth") || normalized.Contains("england"))
+                return "uk";
+            if (normalized.Contains("german") || normalized.Contains("reich") || normalized.Contains("nazi"))
+                return "german";
+            if (normalized.Contains("soviet") || normalized.Contains("ussr") || normalized.Contains("russia"))
+                return "soviet";
+            if (normalized.Contains("japan") || normalized.Contains("nippon"))
+                return "japanese";
+            if (normalized.Contains("ital"))
+                return "italian";
+            if (normalized.Contains("french") || normalized.Contains("france"))
+                return "french";
+            if (normalized.Contains("china") || normalized.Contains("chinese"))
+                return "chinese";
+            if (normalized.Contains("poland") || normalized.Contains("polish"))
+                return "polish";
+
+            // Fallback: return the original owner name normalized
+            return string.IsNullOrWhiteSpace(normalized) ? "generic" : normalized;
+        }
+
+        static CarrierMapping ResolveNationalityMapping(CarrierMapping baseMapping, string nationality, Unit unit)
+        {
+            if (baseMapping == null)
+                return null;
+
+            // If this mapping has nationality-specific entries, try to resolve them
+            if (baseMapping.NationalityMappings != null && baseMapping.NationalityMappings.Count > 0)
+            {
+                // Try exact nationality match first
+                if (baseMapping.NationalityMappings.TryGetValue(nationality, out string carrierName))
+                {
+                    var resolved = new CarrierMapping
+                    {
+                        InfantryName = baseMapping.InfantryName,
+                        CarrierName = carrierName,
+                        NationalityMappings = baseMapping.NationalityMappings
+                    };
+                    Debug.Log($"[SquadOfSteel] Resolved nationality-specific mapping: {baseMapping.InfantryName} ({nationality}) -> {carrierName}");
+                    Trace(unit, $"Resolved nationality-specific mapping: {nationality} -> {carrierName}");
+                    return resolved;
+                }
+
+                // Try generic fallback
+                if (baseMapping.NationalityMappings.TryGetValue("generic", out carrierName))
+                {
+                    var resolved = new CarrierMapping
+                    {
+                        InfantryName = baseMapping.InfantryName,
+                        CarrierName = carrierName,
+                        NationalityMappings = baseMapping.NationalityMappings
+                    };
+                    Debug.Log($"[SquadOfSteel] Resolved generic mapping fallback: {baseMapping.InfantryName} ({nationality}) -> {carrierName}");
+                    Trace(unit, $"Resolved generic mapping fallback: {carrierName}");
+                    return resolved;
+                }
+
+                // No match found in nationality mappings
+                Debug.LogWarning($"[SquadOfSteel] No nationality mapping for '{baseMapping.InfantryName}' with nationality '{nationality}' and no generic fallback.");
+                return null;
+            }
+
+            // Legacy format - no nationality mappings, use as-is
+            return baseMapping;
         }
 
         static void EnsureCarrierMappingsLoaded()
@@ -852,6 +954,49 @@ namespace SquadOfSteelMod
                 if (string.IsNullOrWhiteSpace(json))
                     return;
 
+                // Try to parse as nested nationality-specific format first
+                try
+                {
+                    var nestedEntries = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                    if (nestedEntries != null && nestedEntries.Count > 0)
+                    {
+                        int loadedCount = 0;
+                        foreach (var pair in nestedEntries)
+                        {
+                            string infantryName = pair.Key;
+
+                            // Skip comment fields
+                            if (infantryName.StartsWith("_", StringComparison.Ordinal))
+                                continue;
+
+                            // Check if this is a nested object (nationality mappings) or a simple string (legacy format)
+                            if (pair.Value is Newtonsoft.Json.Linq.JObject nestedObj)
+                            {
+                                var nationalityMappings = nestedObj.ToObject<Dictionary<string, string>>();
+                                if (nationalityMappings != null && nationalityMappings.Count > 0)
+                                {
+                                    RegisterNationalityMapping(infantryName, nationalityMappings);
+                                    loadedCount++;
+                                }
+                            }
+                            else if (pair.Value is string carrierName)
+                            {
+                                // Legacy flat format
+                                RegisterMapping(infantryName, carrierName);
+                                loadedCount++;
+                            }
+                        }
+
+                        Debug.Log($"[SquadOfSteel] Loaded {loadedCount} transport mappings (nationality-aware format).");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[SquadOfSteel] Failed to parse nested nationality mappings, trying legacy format: {ex.Message}");
+                }
+
+                // Fallback: try legacy flat format
                 var entries = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
                 if (entries == null || entries.Count == 0)
                     return;
@@ -861,7 +1006,7 @@ namespace SquadOfSteelMod
                     RegisterMapping(pair.Key, pair.Value);
                 }
 
-                Debug.Log($"[SquadOfSteel] Loaded {s_mappingsByInfantry.Count} transport mappings.");
+                Debug.Log($"[SquadOfSteel] Loaded {s_mappingsByInfantry.Count} transport mappings (legacy format).");
             }
             catch (Exception ex)
             {
@@ -937,6 +1082,51 @@ namespace SquadOfSteelMod
             s_mappingsByCarrier[carrierName] = mapping;
         }
 
+        static void RegisterNationalityMapping(string infantryName, Dictionary<string, string> nationalityMappings)
+        {
+            if (string.IsNullOrWhiteSpace(infantryName) || nationalityMappings == null || nationalityMappings.Count == 0)
+                return;
+
+            infantryName = infantryName.Trim();
+
+            if (infantryName.StartsWith("#", StringComparison.Ordinal) ||
+                infantryName.StartsWith("//", StringComparison.Ordinal) ||
+                infantryName.StartsWith("_", StringComparison.Ordinal))
+                return;
+
+            var mapping = new CarrierMapping
+            {
+                InfantryName = infantryName,
+                NationalityMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            };
+
+            // Normalize all nationality keys to lowercase for consistent lookups
+            foreach (var pair in nationalityMappings)
+            {
+                if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrWhiteSpace(pair.Value))
+                    continue;
+
+                string nationalityKey = pair.Key.Trim().ToLowerInvariant();
+                string carrierName = pair.Value.Trim();
+
+                mapping.NationalityMappings[nationalityKey] = carrierName;
+
+                // Register carrier in reverse lookup
+                if (!s_mappingsByCarrier.ContainsKey(carrierName))
+                {
+                    s_mappingsByCarrier[carrierName] = mapping;
+                }
+            }
+
+            // Try to cache infantry prototype if available
+            if (TryGetUnitDefinition(infantryName, out var infantryDefinition))
+            {
+                mapping.InfantryPrototype = infantryDefinition.Clone(false);
+            }
+
+            s_mappingsByInfantry[infantryName] = mapping;
+        }
+
         static bool TryGetUnitDefinition(string unitName, out Unit definition)
         {
             definition = null;
@@ -944,20 +1134,25 @@ namespace SquadOfSteelMod
                 return false;
 
             if (s_unitDefinitions.TryGetValue(unitName, out definition))
+            {
+                Debug.Log($"[SquadOfSteel] Unit definition '{unitName}' found in cache.");
                 return true;
+            }
 
+            Debug.Log($"[SquadOfSteel] Searching for unit definition '{unitName}'...");
             var source = FindUnitDefinitionInternal(unitName);
             if (source == null)
             {
                 if (s_missingUnitDefinitions.Add(unitName))
                 {
-                    Debug.LogWarning($"[SquadOfSteel] Could not find unit definition '{unitName}' while loading transport mappings.");
+                    Debug.LogError($"[SquadOfSteel] CRITICAL: Could not find unit definition '{unitName}' in official units OR map units!");
                     LogUnitLookupHints(unitName);
                 }
 
                 return false;
             }
 
+            Debug.Log($"[SquadOfSteel] Unit definition '{unitName}' found and cached.");
             definition = source.Clone(false);
             s_unitDefinitions[unitName] = definition;
             return true;
