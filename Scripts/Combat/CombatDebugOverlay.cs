@@ -125,7 +125,10 @@ namespace SquadOfSteelMod.Combat
             LayoutRebuilder.ForceRebuildLayoutImmediate(s_content);
 
             if (s_scrollRect != null)
-                s_scrollRect.verticalNormalizedPosition = 1f;
+            {
+                s_scrollRect.StopMovement();
+                s_scrollRect.verticalNormalizedPosition = 0f;
+            }
         }
 
         static void QueuePending(string message)
@@ -201,7 +204,7 @@ namespace SquadOfSteelMod.Combat
             panelImage.raycastTarget = false;
 
             var panelGroup = panel.GetComponent<CanvasGroup>();
-            panelGroup.blocksRaycasts = false;
+            panelGroup.blocksRaycasts = true;
             panelGroup.interactable = false;
             panelGroup.ignoreParentGroups = true;
 
@@ -263,7 +266,7 @@ namespace SquadOfSteelMod.Combat
 
             var viewportImage = viewport.GetComponent<Image>();
             viewportImage.color = new Color(0f, 0f, 0f, 0f);
-            viewportImage.raycastTarget = false;
+            viewportImage.raycastTarget = true;
 
             var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             s_content = content.GetComponent<RectTransform>();
