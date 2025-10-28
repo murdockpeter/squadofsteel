@@ -1,5 +1,5 @@
 param(
-    [string]$ModLibraryPath = $(Join-Path (Join-Path $Env:LOCALAPPDATA '..\LocalLow') 'War Frogs Studio\Hex of Steel\MODS\Squad Of Steel\Libraries')
+    [string]$ModLibraryPath = $(Join-Path (Join-Path $Env:LOCALAPPDATA '..\LocalLow') 'War Frogs Studio\Hex of Steel\MODS\Squad Of Steel Beta 1.0\Libraries')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,7 +22,8 @@ $scriptRoot = Split-Path -Parent $PSCommandPath
 $repoRoot = Resolve-FullPath (Join-Path $scriptRoot '..')
 $outputRoot = Join-Path $repoRoot 'output\net48'
 $dllSource = Join-Path $outputRoot 'SquadOfSteel.dll'
-$assetSource = Join-Path $outputRoot 'Assets\transport-mappings.json'
+$assetDirectory = Join-Path $outputRoot 'Assets'
+$mappingSourcePattern = 'transport-mappings*.json'
 $manifestSource = Join-Path $repoRoot 'ModPackage\Manifest.json'
 $infoSource = Join-Path $repoRoot 'ModPackage\info.txt'
 $iconSource = Join-Path $repoRoot 'Libraries\SmallImage.png'
@@ -31,8 +32,13 @@ if (-not (Test-Path $dllSource)) {
     throw "Could not find compiled DLL at '$dllSource'. Build the project first."
 }
 
-if (-not (Test-Path $assetSource)) {
-    throw "Could not find transport mapping asset at '$assetSource'. Ensure the build output is up to date."
+if (-not (Test-Path $assetDirectory)) {
+    throw "Could not find transport asset directory at '$assetDirectory'. Ensure the build output is up to date."
+}
+
+$mappingSources = Get-ChildItem -Path $assetDirectory -Filter $mappingSourcePattern -File -ErrorAction Stop
+if (-not $mappingSources) {
+    throw "No transport mapping files matching '$mappingSourcePattern' were found under '$assetDirectory'."
 }
 
 $resolvedLibraryPath = Resolve-FullPath $ModLibraryPath
@@ -47,7 +53,6 @@ if (-not (Test-Path $resolvedLibraryPath)) {
 }
 
 $dllDestination = Join-Path $resolvedLibraryPath 'SquadOfSteel.dll'
-$assetDestination = Join-Path $resolvedLibraryPath 'transport-mappings.json'
 $manifestDestination = Join-Path $modRootPath 'Manifest.json'
 $infoDestination = Join-Path $modRootPath 'info.txt'
 $iconDestination = Join-Path $modRootPath 'SmallImage.png'
@@ -55,9 +60,13 @@ $iconDestination = Join-Path $modRootPath 'SmallImage.png'
 $deployments = New-Object System.Collections.Generic.List[string]
 
 Copy-Item -Path $dllSource -Destination $dllDestination -Force
-Copy-Item -Path $assetSource -Destination $assetDestination -Force
 $deployments.Add($dllDestination)
-$deployments.Add($assetDestination)
+
+foreach ($mappingSource in $mappingSources) {
+    $destination = Join-Path $resolvedLibraryPath $mappingSource.Name
+    Copy-Item -Path $mappingSource.FullName -Destination $destination -Force
+    $deployments.Add($destination)
+}
 
 if (Test-Path $manifestSource) {
     Copy-Item -Path $manifestSource -Destination $manifestDestination -Force

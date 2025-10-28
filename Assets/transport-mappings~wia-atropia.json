@@ -1,0 +1,40 @@
+{
+  "_comment": "War In Atropia overrides: swap Atropian infantry into BRDM-2 HOT-3 transports.",
+  "_note": "Loads after the base mappings; handles multiple Atropia owner name variants so Move mode always uses the BRDM.",
+
+  "Militia": {
+    ".wia atropia": "BRDM-2 HOT-3",
+    "wia atropia": "BRDM-2 HOT-3",
+    "atropia": "BRDM-2 HOT-3"
+  },
+  "Infantry": {
+    ".wia atropia": "BRDM-2 HOT-3",
+    "wia atropia": "BRDM-2 HOT-3",
+    "atropia": "BRDM-2 HOT-3"
+  },
+  "Heavy Infantry": {
+    ".wia atropia": "BRDM-2 HOT-3",
+    "wia atropia": "BRDM-2 HOT-3",
+    "atropia": "BRDM-2 HOT-3"
+  },
+  "Marines": {
+    ".wia atropia": "BRDM-2 HOT-3",
+    "wia atropia": "BRDM-2 HOT-3",
+    "atropia": "BRDM-2 HOT-3"
+  },
+  "Paratroopers": {
+    ".wia atropia": "BRDM-2 HOT-3",
+    "wia atropia": "BRDM-2 HOT-3",
+    "atropia": "BRDM-2 HOT-3"
+  },
+  "Engineers": {
+    ".wia atropia": "BRDM-2 HOT-3",
+    "wia atropia": "BRDM-2 HOT-3",
+    "atropia": "BRDM-2 HOT-3"
+  },
+  "Scouts": {
+    ".wia atropia": "BRDM-2 HOT-3",
+    "wia atropia": "BRDM-2 HOT-3",
+    "atropia": "BRDM-2 HOT-3"
+  }
+}

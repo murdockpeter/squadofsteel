@@ -38,10 +38,10 @@ The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
    - Preferred: run `pwsh .\Scripts\DeployToGame.ps1` (or `powershell` on Windows) to copy both the DLL and `Assets\transport-mappings.json` into the game mod folder.
    - Manual copy, if you prefer explicit commands:
      ```powershell
-     Copy-Item .\output\net48\SquadOfSteel.dll `
-       "$Env:LOCALAPPDATA\..\LocalLow\War Frogs Studio\Hex of Steel\MODS\Squad Of Steel\Libraries\SquadOfSteel.dll" -Force
-     Copy-Item .\Assets\transport-mappings.json `
-       "$Env:LOCALAPPDATA\..\LocalLow\War Frogs Studio\Hex of Steel\MODS\Squad Of Steel\Libraries\transport-mappings.json" -Force
+    Copy-Item .\output\net48\SquadOfSteel.dll `
+      "$Env:LOCALAPPDATA\..\LocalLow\War Frogs Studio\Hex of Steel\MODS\Squad Of Steel Beta 1.0\Libraries\SquadOfSteel.dll" -Force
+    Copy-Item .\Assets\transport-mappings.json `
+      "$Env:LOCALAPPDATA\..\LocalLow\War Frogs Studio\Hex of Steel\MODS\Squad Of Steel Beta 1.0\Libraries\transport-mappings.json" -Force
      ```
 3. Configure transport mappings (optional):
    - Edit `Assets\transport-mappings.json` to map infantry unit names to their carrier vehicles.

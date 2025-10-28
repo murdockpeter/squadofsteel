@@ -40,6 +40,28 @@ namespace SquadOfSteelMod
         static readonly Dictionary<string, Unit> s_unitDefinitions = new Dictionary<string, Unit>(StringComparer.OrdinalIgnoreCase);
         static readonly HashSet<string> s_missingUnitDefinitions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         static readonly HashSet<string> s_missingTransportMappings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        static readonly HashSet<string> s_disabledTransportMappings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        static readonly HashSet<string> s_genericNationalityAllowList = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "generic",
+            "us",
+            "usa",
+            "uk",
+            "british",
+            "german",
+            "soviet",
+            "ussr",
+            "russian",
+            "japanese",
+            "italian",
+            "french",
+            "chinese",
+            "polish",
+            "axis",
+            "allies",
+            "neutral",
+            "ai"
+        };
         static bool s_officialUnitsLoadAttempted;
         static bool s_loggedOfficialUnitsLoadFailure;
         static bool s_loggedOfficialUnitCount;
@@ -104,6 +126,7 @@ namespace SquadOfSteelMod
             public Unit InfantryPrototype;
             public Unit CarrierPrototype;
             public Dictionary<string, string> NationalityMappings; // nationality -> carrier name
+            public string ResolvedNationality;
         }
 
         sealed class TransportState
@@ -654,6 +677,8 @@ namespace SquadOfSteelMod
             if (unit == null)
                 return null;
 
+            string nationality = GetUnitNationality(unit);
+
             if (!TryGetMappingForUnit(unit, out var mapping))
             {
                 s_transportStates.Remove(unit.ID);
@@ -663,7 +688,7 @@ namespace SquadOfSteelMod
 
             if (!EnsureMappingPrototypes(mapping))
             {
-                Debug.LogWarning($"[SquadOfSteel] Transport mapping '{mapping.InfantryName}' -> '{mapping.CarrierName}' missing prototypes; move-mode swap disabled.");
+                DisableMapping(mapping, "missing prototypes", unit, nationality);
                 s_transportStates.Remove(unit.ID);
                 Trace(unit, "Transport mapping prototypes unresolved.");
                 return null;
@@ -728,8 +753,11 @@ namespace SquadOfSteelMod
                 return false;
             }
 
+            string nationality = GetUnitNationality(state.InfantrySnapshot);
+
             if (!EnsureMappingPrototypes(mapping))
             {
+                DisableMapping(mapping, "missing prototypes", state.InfantrySnapshot, nationality);
                 Trace(state.InfantrySnapshot, "Carrier snapshot update aborted - mapping prototypes missing.");
                 return false;
             }
@@ -737,6 +765,7 @@ namespace SquadOfSteelMod
             // CRITICAL: If carrier prototype is null after EnsureMappingPrototypes, abort to prevent corruption
             if (mapping.CarrierPrototype == null)
             {
+                DisableMapping(mapping, "carrier prototype unresolved", state.InfantrySnapshot, nationality);
                 Debug.LogError($"[SquadOfSteel] Carrier prototype null for '{mapping.CarrierName}' - aborting to prevent stat corruption.");
                 Trace(state.InfantrySnapshot, "Carrier prototype null after EnsureMappingPrototypes - corruption risk detected.");
                 return false;
@@ -781,8 +810,11 @@ namespace SquadOfSteelMod
                 return false;
             }
 
+            string nationality = GetUnitNationality(state?.CarrierSnapshot);
+
             if (!EnsureMappingPrototypes(mapping))
             {
+                DisableMapping(mapping, "missing prototypes", state?.CarrierSnapshot, nationality);
                 Trace(state?.CarrierSnapshot, "Infantry snapshot update aborted - mapping prototypes missing.");
                 return false;
             }
@@ -790,6 +822,7 @@ namespace SquadOfSteelMod
             // CRITICAL: If infantry prototype is null after EnsureMappingPrototypes, abort to prevent corruption
             if (mapping.InfantryPrototype == null)
             {
+                DisableMapping(mapping, "infantry prototype unresolved", state.CarrierSnapshot, nationality);
                 Debug.LogError($"[SquadOfSteel] Infantry prototype null for '{mapping.InfantryName}' - aborting to prevent stat corruption.");
                 Trace(state.CarrierSnapshot, "Infantry prototype null after EnsureMappingPrototypes - corruption risk detected.");
                 return false;
@@ -834,7 +867,7 @@ namespace SquadOfSteelMod
             if (s_mappingsByInfantry.TryGetValue(name, out var baseMapping))
             {
                 mapping = ResolveNationalityMapping(baseMapping, nationality, unit);
-                if (mapping != null)
+                if (mapping != null && !IsMappingDisabled(mapping, nationality, unit))
                     return true;
             }
 
@@ -842,7 +875,7 @@ namespace SquadOfSteelMod
             if (s_mappingsByCarrier.TryGetValue(name, out baseMapping))
             {
                 mapping = ResolveNationalityMapping(baseMapping, nationality, unit);
-                if (mapping != null)
+                if (mapping != null && !IsMappingDisabled(mapping, nationality, unit))
                     return true;
             }
 
@@ -861,30 +894,78 @@ namespace SquadOfSteelMod
                 return "generic";
 
             string ownerName = unit.OwnerName ?? string.Empty;
-            string normalized = ownerName.ToLowerInvariant().Trim();
+            string normalizedOwner = ownerName.ToLowerInvariant().Trim();
+
+            string countryName = unit.Country ?? string.Empty;
+            string normalizedCountry = countryName.ToLowerInvariant().Trim();
+
+            // If owner is generic player label, fall back to country string
+            if ((string.IsNullOrWhiteSpace(normalizedOwner) || normalizedOwner.StartsWith("player", StringComparison.OrdinalIgnoreCase)) &&
+                !string.IsNullOrWhiteSpace(normalizedCountry))
+            {
+                normalizedOwner = normalizedCountry;
+            }
 
             // Map common nationality names to standardized keys
-            if (normalized.Contains("us") || normalized.Contains("america") || normalized.Contains("usa") || normalized.Contains("united states"))
+            if (normalizedOwner.Contains("us") || normalizedOwner.Contains("america") || normalizedOwner.Contains("usa") || normalizedOwner.Contains("united states"))
                 return "us";
-            if (normalized.Contains("uk") || normalized.Contains("brit") || normalized.Contains("commonwealth") || normalized.Contains("england"))
+            if (normalizedOwner.Contains("uk") || normalizedOwner.Contains("brit") || normalizedOwner.Contains("commonwealth") || normalizedOwner.Contains("england"))
                 return "uk";
-            if (normalized.Contains("german") || normalized.Contains("reich") || normalized.Contains("nazi"))
+            if (normalizedOwner.Contains("german") || normalizedOwner.Contains("reich") || normalizedOwner.Contains("nazi"))
                 return "german";
-            if (normalized.Contains("soviet") || normalized.Contains("ussr") || normalized.Contains("russia"))
+            if (normalizedOwner.Contains("soviet") || normalizedOwner.Contains("ussr") || normalizedOwner.Contains("russia"))
                 return "soviet";
-            if (normalized.Contains("japan") || normalized.Contains("nippon"))
+            if (normalizedOwner.Contains("japan") || normalizedOwner.Contains("nippon"))
                 return "japanese";
-            if (normalized.Contains("ital"))
+            if (normalizedOwner.Contains("ital"))
                 return "italian";
-            if (normalized.Contains("french") || normalized.Contains("france"))
+            if (normalizedOwner.Contains("french") || normalizedOwner.Contains("france"))
                 return "french";
-            if (normalized.Contains("china") || normalized.Contains("chinese"))
+            if (normalizedOwner.Contains("china") || normalizedOwner.Contains("chinese"))
                 return "chinese";
-            if (normalized.Contains("poland") || normalized.Contains("polish"))
+            if (normalizedOwner.Contains("poland") || normalizedOwner.Contains("polish"))
                 return "polish";
 
-            // Fallback: return the original owner name normalized
-            return string.IsNullOrWhiteSpace(normalized) ? "generic" : normalized;
+            // Fallback: use the normalized owner/country value or generic
+            return string.IsNullOrWhiteSpace(normalizedOwner) ? "generic" : normalizedOwner;
+        }
+
+        static bool IsGenericAllowedForNationality(string nationality, Unit unit)
+        {
+            if (string.IsNullOrWhiteSpace(nationality))
+                return true;
+
+            if (s_genericNationalityAllowList.Contains(nationality))
+                return true;
+
+            if (unit != null)
+            {
+                string owner = unit.OwnerName ?? string.Empty;
+                string country = unit.Country ?? string.Empty;
+                if (ContainsModdedMarker(owner) || ContainsModdedMarker(country))
+                    return false;
+            }
+
+            if (nationality.StartsWith("player", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        static bool ContainsModdedMarker(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            string normalized = value.ToLowerInvariant();
+
+            if (normalized.Contains(".wia") || normalized.Contains(".mod") || normalized.Contains(".custom") || normalized.Contains("wia "))
+                return true;
+
+            if (normalized.Contains("atropia") || normalized.Contains("donovia") || normalized.Contains("torrike") || normalized.Contains("olvana") || normalized.Contains("gorgas"))
+                return true;
+
+            return false;
         }
 
         static CarrierMapping ResolveNationalityMapping(CarrierMapping baseMapping, string nationality, Unit unit)
@@ -902,8 +983,11 @@ namespace SquadOfSteelMod
                     {
                         InfantryName = baseMapping.InfantryName,
                         CarrierName = carrierName,
+                        InfantryPrototype = baseMapping.InfantryPrototype,
+                        CarrierPrototype = baseMapping.CarrierPrototype,
                         NationalityMappings = baseMapping.NationalityMappings
                     };
+                    resolved.ResolvedNationality = nationality;
                     Debug.Log($"[SquadOfSteel] Resolved nationality-specific mapping: {baseMapping.InfantryName} ({nationality}) -> {carrierName}");
                     Trace(unit, $"Resolved nationality-specific mapping: {nationality} -> {carrierName}");
                     return resolved;
@@ -912,23 +996,36 @@ namespace SquadOfSteelMod
                 // Try generic fallback
                 if (baseMapping.NationalityMappings.TryGetValue("generic", out carrierName))
                 {
+                    if (!IsGenericAllowedForNationality(nationality, unit))
+                    {
+                        DisableMapping(baseMapping, $"no nationality mapping for '{nationality}'", unit, nationality);
+                        Trace(unit, $"Generic transport mapping blocked for unsupported nationality '{nationality}'.");
+                        return null;
+                    }
+
                     var resolved = new CarrierMapping
                     {
                         InfantryName = baseMapping.InfantryName,
                         CarrierName = carrierName,
+                        InfantryPrototype = baseMapping.InfantryPrototype,
+                        CarrierPrototype = baseMapping.CarrierPrototype,
                         NationalityMappings = baseMapping.NationalityMappings
                     };
+                    resolved.ResolvedNationality = "generic";
                     Debug.Log($"[SquadOfSteel] Resolved generic mapping fallback: {baseMapping.InfantryName} ({nationality}) -> {carrierName}");
                     Trace(unit, $"Resolved generic mapping fallback: {carrierName}");
                     return resolved;
                 }
 
                 // No match found in nationality mappings
+                DisableMapping(baseMapping, $"no nationality mapping for '{nationality}'", unit, nationality);
                 Debug.LogWarning($"[SquadOfSteel] No nationality mapping for '{baseMapping.InfantryName}' with nationality '{nationality}' and no generic fallback.");
                 return null;
             }
 
             // Legacy format - no nationality mappings, use as-is
+            if (string.IsNullOrEmpty(baseMapping.ResolvedNationality))
+                baseMapping.ResolvedNationality = "legacy";
             return baseMapping;
         }
 
@@ -1120,6 +1217,7 @@ namespace SquadOfSteelMod
                 InfantryName = infantryName,
                 CarrierName = carrierName
             };
+            mapping.ResolvedNationality = "legacy";
 
             if (TryGetUnitDefinition(infantryName, out var infantryDefinition))
             {
@@ -1152,6 +1250,7 @@ namespace SquadOfSteelMod
                 InfantryName = infantryName,
                 NationalityMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             };
+            mapping.ResolvedNationality = null;
 
             // Normalize all nationality keys to lowercase for consistent lookups
             foreach (var pair in nationalityMappings)
@@ -1209,6 +1308,61 @@ namespace SquadOfSteelMod
             definition = source.Clone(false);
             s_unitDefinitions[unitName] = definition;
             return true;
+        }
+
+        static bool IsMappingDisabled(CarrierMapping mapping, string nationalityContext, Unit unitContext)
+        {
+            if (mapping == null)
+                return true;
+
+            string key = BuildMappingKey(mapping, nationalityContext);
+            if (string.IsNullOrEmpty(key))
+                return false;
+
+            if (!s_disabledTransportMappings.Contains(key))
+                return false;
+
+            string nationality = string.IsNullOrWhiteSpace(nationalityContext)
+                ? mapping.ResolvedNationality ?? "generic"
+                : nationalityContext;
+            Trace(unitContext, $"Transport mapping '{mapping.InfantryName}' -> '{mapping.CarrierName}' disabled for nationality '{nationality}' (fallback in use).");
+            return true;
+        }
+
+        static void DisableMapping(CarrierMapping mapping, string reason, Unit unitContext, string nationalityContext)
+        {
+            if (mapping == null)
+                return;
+
+            string key = BuildMappingKey(mapping, nationalityContext);
+            if (string.IsNullOrEmpty(key))
+                return;
+
+            if (!s_disabledTransportMappings.Add(key))
+                return;
+
+            string infantry = string.IsNullOrWhiteSpace(mapping.InfantryName) ? "<unknown infantry>" : mapping.InfantryName;
+            string carrier = string.IsNullOrWhiteSpace(mapping.CarrierName) ? "<unknown carrier>" : mapping.CarrierName;
+            string nationality = string.IsNullOrWhiteSpace(nationalityContext)
+                ? mapping.ResolvedNationality ?? "generic"
+                : nationalityContext;
+            Debug.LogWarning($"[SquadOfSteel] Disabled transport mapping '{infantry}' -> '{carrier}' for nationality '{nationality}' ({reason}). Falling back to legacy move mode.");
+            Trace(unitContext, $"Transport mapping disabled ({reason}).");
+        }
+
+        static string BuildMappingKey(CarrierMapping mapping, string nationalityContext)
+        {
+            if (mapping == null)
+                return string.Empty;
+
+            string infantry = mapping.InfantryName ?? string.Empty;
+            string carrier = mapping.CarrierName ?? string.Empty;
+            string nationality = nationalityContext;
+            if (string.IsNullOrWhiteSpace(nationality))
+                nationality = mapping.ResolvedNationality ?? string.Empty;
+
+            string key = $"{infantry}=>{carrier}=>{nationality}";
+            return key.ToLowerInvariant();
         }
 
         static Unit FindUnitDefinitionInternal(string unitName)
