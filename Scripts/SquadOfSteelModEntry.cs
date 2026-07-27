@@ -12,6 +12,7 @@ namespace SquadOfSteelMod
     public class SquadOfSteelModEntry : GameModification
     {
         Harmony _harmony;
+        GameObject _keybindHost;
 
         public SquadOfSteelModEntry(Mod mod) : base(mod)
         {
@@ -23,7 +24,7 @@ namespace SquadOfSteelMod
         {
             Debug.Log("[SquadOfSteel] Initializing mod...");
 
-            mod = modInstance;
+            Mod = modInstance;
 
             ApplyPatches();
         }
@@ -35,6 +36,12 @@ namespace SquadOfSteelMod
             SquadOfSteelUI.Shutdown();
             SquadCombatRuntime.Shutdown();
             SquadOfSteelState.Save();
+
+            if (_keybindHost != null)
+            {
+                GameObject.Destroy(_keybindHost);
+                _keybindHost = null;
+            }
 
             if (_harmony != null)
             {
@@ -55,9 +62,14 @@ namespace SquadOfSteelMod
             SquadCombatRuntime.Initialize();
             SquadOfSteelUI.Initialize();
 
-            var keybindHost = new GameObject("SquadOfSteelKeybindHost");
-            keybindHost.AddComponent<SquadOfSteelKeybindHandler>();
-            GameObject.DontDestroyOnLoad(keybindHost);
+            if (_keybindHost != null)
+            {
+                GameObject.Destroy(_keybindHost);
+            }
+
+            _keybindHost = new GameObject("SquadOfSteelKeybindHost");
+            _keybindHost.AddComponent<SquadOfSteelKeybindHandler>();
+            GameObject.DontDestroyOnLoad(_keybindHost);
 
             Debug.Log("[SquadOfSteel] Mod initialized; press the toggle key to open the Squad Panel (defaults to 'K').");
         }

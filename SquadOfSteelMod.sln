@@ -5,6 +5,10 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquadOfSteel", "SquadOfSteel.csproj", "{3EC85843-E21C-4827-9A73-B34BA69D3275}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{F10CABEE-8893-4B43-84BC-9DDF3C9407E3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompatibilityHarness", "Tests\CompatibilityHarness\CompatibilityHarness.csproj", "{2A7BC6A4-0564-49F4-942E-D362A41C02F2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +22,12 @@ Global
 		{3EC85843-E21C-4827-9A73-B34BA69D3275}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3EC85843-E21C-4827-9A73-B34BA69D3275}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3EC85843-E21C-4827-9A73-B34BA69D3275}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2A7BC6A4-0564-49F4-942E-D362A41C02F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A7BC6A4-0564-49F4-942E-D362A41C02F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A7BC6A4-0564-49F4-942E-D362A41C02F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A7BC6A4-0564-49F4-942E-D362A41C02F2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2A7BC6A4-0564-49F4-942E-D362A41C02F2} = {F10CABEE-8893-4B43-84BC-9DDF3C9407E3}
 	EndGlobalSection
 EndGlobal

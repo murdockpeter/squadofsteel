@@ -1,10 +1,22 @@
 param(
-    [string]$GameInstallPath = "D:\SteamLibrary\steamapps\common\Hex of Steel",
+    [string]$GameInstallPath,
     [string]$OutputDirectory = $(Join-Path (Split-Path -Parent $PSCommandPath) "..\output"),
     [double]$TileLengthKm = 1.0
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($GameInstallPath)) {
+    $installCandidates = @(
+        (Join-Path ${Env:ProgramFiles(x86)} "Steam\steamapps\common\Hex of Steel"),
+        "D:\SteamLibrary\steamapps\common\Hex of Steel"
+    )
+
+    $GameInstallPath =
+        $installCandidates |
+        Where-Object { Test-Path -LiteralPath $_ } |
+        Select-Object -First 1
+}
 
 if (-not (Test-Path $GameInstallPath)) {
     throw "Game install path '$GameInstallPath' does not exist. Pass -GameInstallPath to point at your Hex of Steel install."
@@ -32,6 +44,8 @@ $typeDefinition = @'
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 [Serializable]
@@ -74,6 +88,10 @@ public class UnitsCatalogSurrogate : ISerializable
 
 public sealed class UnitsCatalogBinder : SerializationBinder
 {
+    private static readonly Assembly UnitAssembly =
+        AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(assembly => assembly.FullName == "__ASSEMBLY__");
+
     public override Type BindToType(string assemblyName, string typeName)
     {
         if (string.IsNullOrEmpty(typeName))
@@ -103,7 +121,15 @@ public sealed class UnitsCatalogBinder : SerializationBinder
             return typeof(List<>).MakeGenericType(unitType);
         }
 
-        // Resolve enums and other helper types from the original assembly when possible.
+        if (!string.IsNullOrEmpty(assemblyName) &&
+            assemblyName.StartsWith("Assembly-CSharp", StringComparison.OrdinalIgnoreCase))
+        {
+            Type gameType = UnitAssembly == null ? null : UnitAssembly.GetType(typeName, false);
+            if (gameType != null)
+                return gameType;
+        }
+
+        // Resolve framework and other helper types from their original assembly.
         Type resolved = Type.GetType(string.Format("{{0}}, {{1}}", typeName, assemblyName));
         if (resolved != null)
             return resolved;

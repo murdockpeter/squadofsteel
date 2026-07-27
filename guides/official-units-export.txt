@@ -51,6 +51,8 @@
 57mm M1
 61K M1939 37 mm
 65mm Mle 1906
+7.5 cm Gebirgsgeschutz 36
+7.5 cm le.IG 18
 7.5cm horsky kanon vz. 15
 72K GAZ MM
 75 mm FRC M27
@@ -108,7 +110,7 @@ Alexander Patch
 Alexandros Papagos
 Alfonso class light cruiser
 Algerie class heavy cruiser
-Allen M Summer class destroyer
+Allen M Sumner class destroyer
 Almirante Cervera class light cruiser
 Alphonse Juin
 Alsedo class destroyer
@@ -163,6 +165,7 @@ B class submarine
 B-17D Flying Fortress
 B-17F Flying Fortress
 B-17G Flying Fortress
+B-239
 B-24D Liberator
 B-24J Liberator
 B-25 Mitchell
@@ -296,6 +299,7 @@ Char B1 bis
 Char FCM 2C
 Charger class escort carrier
 Charles de Gaulle
+Charles Huntziger
 Chen Yi
 Chester W. Nimitz
 Chiang Kai-shek
@@ -335,6 +339,7 @@ Cromwell Mk. VI CS
 Cromwell Mk. VII
 Cromwell Mk. VII Tulip
 Cruiser Mk. I
+Cruiser Mk. II
 Cruiser Mk. IV
 Cruiser Mk. VIII Challenger
 Crusader Mk. I
@@ -362,7 +367,6 @@ DAR 10
 De Ruyter light cruiser
 Delfinul class submarine
 Demirhisar class destroyer
-Desantniki
 Deutschland class dreadnought
 Deutschland class heavy cruiser
 Dewoitine D.37
@@ -389,6 +393,7 @@ Douro class destroyer
 Dragon's teeth
 Draug class destroyer
 Draža Mihailović
+Drazki-class torpedo boat
 Dubrovnik class destroyer
 Duca d'Aosta class light cruiser
 Duca degli Abruzzi class light cruiser
@@ -489,6 +494,7 @@ Garrison
 Gato class submarine
 GAZ-AAA 4M
 General Haller gunboat
+Georg von Küchler
 George Alan Vasey
 George C. Marshall
 George S. Patton
@@ -585,6 +591,7 @@ Hunt class type I destroyer
 Hunt class type II destroyer
 Hunt class type III destroyer
 Hunt class type IV destroyer
+Hurja class gunboat
 I class destroyer
 I-15 submarine
 I-201 submarine
@@ -655,6 +662,7 @@ Kaga class carrier
 Kagero class destroyer
 Kaichu VII submarine
 Kaidai V submarine
+Kalev class submarine
 Kamikaze class destroyer
 Kaproni Bulgarski KB-11 Fazan
 Karel Doorman
@@ -662,7 +670,6 @@ Karl Donitz
 Kashi class destroyer
 Katori class light cruiser
 Katsonis class submarine
-Kavallerie
 Kawanishi H6K
 Kawanishi N1K1-J
 Kawasaki Ki-32
@@ -745,7 +752,9 @@ Loire 46
 LT vz.35
 LT vz.38
 Lublin R-XIIID
+Lurssen F1 class torpedo boat
 LVTA-4 Alligator
+M class submarine
 M1 Gun 40 mm
 M10 Wolverine
 M114 155mm
@@ -770,15 +779,9 @@ M-30 122 mm
 M36 Jackson
 M39 Pantserwagen
 M4 Crocodile
-M4 Sherman
+M4 T40 M17 Whizbang
 m40 automatic cannon
-M4A3
-M4A3 105mm
-M4A3E2 Jumbo
-M4A3E2(76)W Jumbo
-M4A3E8(76)W
-M4A4 Firefly
-M4A4 Sherman Mk. V Tulip
+M4A3 T34 Calliope
 M5 3-inch
 M5 Stuart
 M6
@@ -804,7 +807,10 @@ Marines
 Mario Roatta
 Markian Popov
 Markos Drakos
-Marmon-Herrington Armoured Car Mk. IV
+Marmon–Herrington Mk I
+Marmon–Herrington Mk II
+Marmon–Herrington Mk IV
+Marmon–Herrington Mk VI
 Marmon-Herrington MTLS-1GI4
 Marsuinul class submarine
 MAS gunboat
@@ -818,6 +824,7 @@ Matsu class destroyer
 Maurice Gamelin
 MAVAG Heja I
 MAVAG Heja II
+Maximilian von Weichs
 Medium coastal battery
 Messerschmitt 163
 Messerschmitt 210
@@ -918,6 +925,7 @@ NKVD infantry 43
 North American A-36 Apache
 North Carolina class battleship
 Northampton class heavy cruiser
+Novik class destroyer
 O 19 class submarine
 OA vz. 30
 Obice 105 mm
@@ -995,9 +1003,8 @@ Panzer V Ausf. G Panther
 Panzer VI Ausf. B Tiger II
 Panzer VI Ausf. E Tiger I
 Panzer VIII Maus
-Panzergrenadier
+Panzergrenadiers
 Panzerjager I
-Paracadutisti
 Paratroopers
 Parthian class submarine
 Partisans
@@ -1018,6 +1025,7 @@ PGM-1 gunboat
 PGM-9 gunboat
 Phra Ruang class destroyer
 Piaggio P108B
+Pierre Héring
 Pietro Badoglio
 Pinguin class auxiliary cruiser
 Pisa class heavy cruiser
@@ -1035,6 +1043,7 @@ Potez 540
 Potez 630
 Potez 633
 Pravda class submarine
+Prezidentas Smetona gunboat
 Prince David class auxiliary cruiser
 Prince Henry class auxiliary cruiser
 Prince Robert class auxiliary cruiser
@@ -1135,7 +1144,9 @@ Sd. Kfz. 251 9 Stummel
 Sd. Kfz. 251 Flammpanzerwagen
 Sd. Kfz. 251-21 Drilling 2 cm
 Sd. Kfz. 4 Panzerwerfer
+Sd. Kfz. 6-2 FlaK 3.7 cm
 Sd. Kfz. 7-1 flakvierling 38
+Sd. Kfz. 8 FlaK 18 8.8 cm
 Sea Hurricane Mk. I A
 Sea Hurricane Mk. I B
 Sea Hurricane Mk. II C
@@ -1155,6 +1166,26 @@ Sexton
 sFH18
 Shchuka class submarine
 Sherman Crab
+Sherman I
+Sherman IB
+Sherman II
+Sherman IIA
+Sherman III
+Sherman M4 105mm
+Sherman M4 75mm
+Sherman M4A1 75mm
+Sherman M4A1 76mm
+Sherman M4A2 75mm
+Sherman M4A3 105mm
+Sherman M4A3 75mm
+Sherman M4A3 76mm
+Sherman M4A3E2 75mm Jumbo
+Sherman M4A3E2 76mm Jumbo
+Sherman M4A3E8 76mm
+Sherman M4A4 75mm
+Sherman V
+Sherman V Tulip
+Sherman VC Firefly
 Shimakaze class destroyer
 Shock infantry
 Shokaku class carrier
@@ -1218,6 +1249,7 @@ SU-76i
 SU-85
 Suffren class heavy cruiser
 Sukhoi 2
+Sulev gunboat
 Sun Li-jen
 Sunderland B Mk. I
 Supermarine Seafire Mk. II
@@ -1259,11 +1291,9 @@ T-34 76 1941
 T-34 76 1942
 T-34 76 1943
 T-34 85
-T34 Calliope
 T-35A
 T-37
 T-40
-T40 Whizbang
 T-44
 T-50
 T-60
@@ -1395,6 +1425,7 @@ Vickers Wellington Mk. II
 Victor Crutchley
 Vifor class destroyer
 Vilho Petter Nenonen
+Virsaitis gunboat
 Visby class destroyer
 VK16.02 Leopard
 VL Myrsky I
@@ -1415,6 +1446,7 @@ Wei Lihuang
 Wespe
 Wicher class destroyer
 Wickes class destroyer
+Wilhelm List
 Wilhelm von Leeb
 Wiljo Tuompo
 Wilk class submarine

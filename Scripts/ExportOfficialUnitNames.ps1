@@ -1,10 +1,22 @@
 param(
-    [string]$GameInstallPath = "D:\SteamLibrary\steamapps\common\Hex of Steel",
+    [string]$GameInstallPath,
     [string]$OutputDirectory = $(Join-Path (Split-Path -Parent $PSCommandPath) "..\output"),
     [string]$GuidesDirectory = $(Join-Path (Split-Path -Parent $PSCommandPath) "..\guides")
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($GameInstallPath)) {
+    $installCandidates = @(
+        (Join-Path ${Env:ProgramFiles(x86)} "Steam\steamapps\common\Hex of Steel"),
+        "D:\SteamLibrary\steamapps\common\Hex of Steel"
+    )
+
+    $GameInstallPath =
+        $installCandidates |
+        Where-Object { Test-Path -LiteralPath $_ } |
+        Select-Object -First 1
+}
 
 $officialUnitsPath = Join-Path $GameInstallPath "Hex of Steel_Data\StreamingAssets\Official units.txt"
 if (-not (Test-Path $officialUnitsPath)) {
@@ -23,12 +35,24 @@ foreach ($directory in @($OutputDirectory, $GuidesDirectory)) {
 
 $jsonOutputPath = Join-Path $OutputDirectory "official-units-export.json"
 $csvOutputPath = Join-Path $OutputDirectory "official-units-export.csv"
+$textOutputPath = Join-Path $OutputDirectory "official-units-export.txt"
 $guidesJsonPath = if (-not [string]::IsNullOrWhiteSpace($GuidesDirectory)) { Join-Path $GuidesDirectory "official-units-export.json" } else { $null }
 $guidesCsvPath = if (-not [string]::IsNullOrWhiteSpace($GuidesDirectory)) { Join-Path $GuidesDirectory "official-units-export.csv" } else { $null }
+$guidesTextPath = if (-not [string]::IsNullOrWhiteSpace($GuidesDirectory)) { Join-Path $GuidesDirectory "official-units-export.txt" } else { $null }
 
-$typeDefinition = @"
+$assemblyPath = Join-Path (Split-Path -Parent $PSCommandPath) "..\Libraries\Assembly-CSharp.dll"
+if (-not (Test-Path -LiteralPath $assemblyPath)) {
+    throw "Could not locate Assembly-CSharp.dll at '$assemblyPath'."
+}
+
+$unitAssembly = [Reflection.Assembly]::LoadFrom((Resolve-Path $assemblyPath))
+$unitAssemblyName = $unitAssembly.FullName
+
+$typeDefinition = @'
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 [Serializable]
@@ -184,6 +208,10 @@ public class LegacyUnitSurrogate : ISerializable
 
 public sealed class LegacyBinder : SerializationBinder
 {
+    private static readonly Assembly UnitAssembly =
+        AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(assembly => assembly.FullName == "__ASSEMBLY__");
+
     public override Type BindToType(string assemblyName, string typeName)
     {
         if (!string.IsNullOrEmpty(assemblyName) &&
@@ -195,7 +223,10 @@ public sealed class LegacyBinder : SerializationBinder
                 return typeof(LegacyUnitSurrogate);
             if (typeName == "Unit[]" || typeName.EndsWith(".Unit[]", StringComparison.OrdinalIgnoreCase))
                 return typeof(LegacyUnitSurrogate[]);
-            return typeof(object);
+
+            Type gameType = UnitAssembly == null ? null : UnitAssembly.GetType(typeName, false);
+            if (gameType != null)
+                return gameType;
         }
 
         if (!string.IsNullOrEmpty(typeName) &&
@@ -213,7 +244,9 @@ public sealed class LegacyBinder : SerializationBinder
         return typeof(object);
     }
 }
-"@
+'@
+
+$typeDefinition = $typeDefinition.Replace("__ASSEMBLY__", $unitAssemblyName)
 
 Add-Type -TypeDefinition $typeDefinition -ErrorAction Stop | Out-Null
 
@@ -307,6 +340,7 @@ $payload = [pscustomobject]@{
 
 $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $jsonOutputPath -Encoding UTF8
 $records | ConvertTo-Csv -NoTypeInformation | Set-Content -Path $csvOutputPath -Encoding UTF8
+$records.name | Sort-Object -Unique | Set-Content -Path $textOutputPath -Encoding UTF8
 
 if ($guidesJsonPath) {
     $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $guidesJsonPath -Encoding UTF8
@@ -314,6 +348,7 @@ if ($guidesJsonPath) {
 
 if ($guidesCsvPath) {
     $records | ConvertTo-Csv -NoTypeInformation | Set-Content -Path $guidesCsvPath -Encoding UTF8
+    $records.name | Sort-Object -Unique | Set-Content -Path $guidesTextPath -Encoding UTF8
 }
 
 $sample = $records | Select-Object -First 5
@@ -322,9 +357,11 @@ Write-Host "Export complete:"
 Write-Host " - Total entries : $($records.Count)"
 Write-Host " - JSON output   : $jsonOutputPath"
 Write-Host " - CSV output    : $csvOutputPath"
+Write-Host " - Text output   : $textOutputPath"
 if ($guidesJsonPath) {
     Write-Host " - Guides JSON   : $guidesJsonPath"
     Write-Host " - Guides CSV    : $guidesCsvPath"
+    Write-Host " - Guides text   : $guidesTextPath"
 }
 
 if ($sample.Count -gt 0) {

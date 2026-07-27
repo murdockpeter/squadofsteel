@@ -2,6 +2,13 @@
 
 Squad Of Steel augments Hex of Steel's tactical layer with squad-focused mechanics layered on top of the vanilla division engine. Direct fire now respects terrain line of sight, combat uses probabilistic resolution instead of deterministic exchanges, suppression lingers across turns, and infantry formations can embark or disembark from their transport counters in real time. Rich debugging tools make every calculation observable while you tune balance or author scenarios.
 
+## Compatibility
+
+- Mod version: **0.4.0**
+- Verified game version: **Hex of Steel 8.4.11+**
+- Bundled patching library: **Harmony 2.4.2**
+- Build target: **.NET Framework 4.8**
+
 ## Feature Highlights
 
 - **Line of sight enforcement** - direct-fire attacks are cancelled (with a notification) if terrain, units, or fog block the shot.
@@ -21,6 +28,7 @@ Squad Of Steel augments Hex of Steel's tactical layer with squad-focused mechani
 - `Assets/` - configuration such as transport mappings.
 - `Libraries/` - reference assemblies pulled from Hex of Steel (Harmony, Assembly-CSharp, Unity modules, etc.).
 - `guides/` - documentation bundles including the combat resolution overview.
+- `Tests/CompatibilityHarness/` - resolves every Harmony patch against the current HoS API without starting a match.
 - `output/` - build products (primary DLL at `net48/SquadOfSteel.dll`).
 
 ## Building
@@ -31,11 +39,21 @@ dotnet build SquadOfSteelMod.sln -c Release
 
 The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
 
+## Compatibility Testing
+
+With Hex of Steel installed through Steam, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Scripts\TestCompatibility.ps1
+```
+
+The compatibility suite performs a release build, verifies that committed reference assemblies match the installed game, resolves all Harmony targets, exercises both official-unit exporters, validates transport carrier names, and checks that assembly/package versions agree.
+
 ## Installation & Usage
 
 1. Build the project or grab the DLL from `output\net48`.
 2. Deploy the build output:
-   - Preferred: run `pwsh .\Scripts\DeployToGame.ps1` (or `powershell` on Windows) to copy both the DLL and `Assets\transport-mappings.json` into the game mod folder.
+   - Preferred: run `powershell -ExecutionPolicy Bypass -File .\Scripts\DeployToGame.ps1` to copy the DLL, mappings, manifest, and bundled dependencies into the game mod folder.
    - Manual copy, if you prefer explicit commands:
      ```powershell
     Copy-Item .\output\net48\SquadOfSteel.dll `
@@ -60,7 +78,17 @@ The compiled DLL lands at `output\net48\SquadOfSteel.dll`.
 
 ### Reference Data
 
-- Run `pwsh .\Scripts\ExportOfficialUnitNames.ps1` to dump the official unit catalog to `output\official-units-export.json` / `.txt`. Pass `-GameInstallPath` if Hex of Steel is not installed in the default Steam location.
+- Run `powershell -ExecutionPolicy Bypass -File .\Scripts\ExportOfficialUnitNames.ps1` to dump the official unit catalog to JSON, CSV, and text files under `output/`.
+- Run `powershell -ExecutionPolicy Bypass -File .\Scripts\ExportOfficialUnitStats.ps1` for the complete stat and mobility exports.
+- Both scripts auto-detect common Steam locations. Pass `-GameInstallPath` for a custom library.
+
+## Workshop Release Checklist
+
+1. Run `powershell -ExecutionPolicy Bypass -File .\Scripts\TestCompatibility.ps1`.
+2. Run `powershell -ExecutionPolicy Bypass -File .\Scripts\DeployToGame.ps1`.
+3. Start a scenario and verify direct fire, retaliation, line of sight, suppression, movement-mode switching, and save/reload.
+4. Confirm `Player.log` contains the Squad Of Steel initialization and no Harmony exceptions.
+5. Upload the tested mod directory to the Workshop.
 
 ## GitHub Kickoff (optional)
 
