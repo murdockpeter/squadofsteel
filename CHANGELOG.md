@@ -10,3 +10,4 @@
 - Refreshed the official unit snapshots for the 8.4.11 catalog.
 - Added the renamed `Panzergrenadiers` transport mapping while retaining the legacy singular mapping.
 - Cleaned up the persistent keybind host when the mod is unloaded or reinitialized.
+- Fixed recursive transport synchronization during scenario loading that could crash the game.

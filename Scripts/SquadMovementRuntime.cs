@@ -239,35 +239,39 @@ namespace SquadOfSteelMod
             if (unitGO?.unit == null)
                 return;
 
-            // Prevent recursion if we're already changing mode for this unit
-            if (s_activelyChangingMode.Contains(unitGO.unit.ID))
-            {
-                Trace(unitGO, "Resync: Skipping - mode change already in progress.");
+            var unit = unitGO.unit;
+
+            // UpdateCounter is called repeatedly while a scenario is being constructed.
+            // A unit in its normal combat form has nothing to restore until it has
+            // actually entered move mode, so do not create transport snapshots here.
+            MovementMode mode = GetMode(unit);
+            var state = s_transportStates.TryGetValue(unit.ID, out var ts) ? ts : null;
+            if (mode == MovementMode.Combat && state == null)
                 return;
-            }
 
-            MovementMode mode = GetMode(unitGO.unit);
-
-            // Only perform transport swap if needed - avoid calling Enter/ExitMoveMode
-            // which trigger RefreshMovementOverlay and cause infinite loops via UpdateCounter
-            var state = s_transportStates.TryGetValue(unitGO.unit.ID, out var ts) ? ts : null;
             if (state != null && state.CurrentForm == mode)
             {
-                // Already in correct state, no action needed
-                Trace(unitGO, $"Resync: Already in {mode}, skipping to avoid recursion.");
+                Trace(unitGO, $"Resync: Already in {mode}, skipping.");
                 return;
             }
 
-            // Only call the full Enter/Exit if we actually need to change state
-            if (mode == MovementMode.Move)
+            // Snapshot creation and SyncFromNetwork can themselves call UpdateCounter.
+            // Hold the same per-unit guard used by explicit mode changes across the
+            // complete resync operation to prevent recursive re-entry.
+            if (!s_activelyChangingMode.Add(unit.ID))
             {
-                // Don't call EnterMoveMode - just ensure transport state without visual refresh
-                TryApplyTransportSwap(unitGO, MovementMode.Move);
+                Trace(unitGO, "Resync: Skipping - synchronization already in progress.");
+                return;
             }
-            else
+
+            try
             {
-                // Don't call ExitMoveMode - just ensure transport state without visual refresh
-                TryApplyTransportSwap(unitGO, MovementMode.Combat);
+                // Apply the serialized move form directly without refreshing overlays.
+                TryApplyTransportSwap(unitGO, mode);
+            }
+            finally
+            {
+                s_activelyChangingMode.Remove(unit.ID);
             }
         }
 
