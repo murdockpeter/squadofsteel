@@ -1,4 +1,4 @@
 Squad Of Steel
-0.4.0
+0.5.0
 Peter G. Robbins
-Adds squad-scale combat resolution with suppression, LOS-aware accuracy, and V-key transport toggles for infantry.
+Adds scale-selectable squad combat resolution with suppression, LOS-aware accuracy, and V-key transport toggles for infantry.

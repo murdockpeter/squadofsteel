@@ -24,9 +24,6 @@ namespace SquadOfSteelMod
 
         const int MoveModeActionPointBonus = 3;
         const byte MoveModeMovementBonus = 3;
-        const float MoveModeIncomingHitChanceBonus = 0.15f;
-        const float MoveModeIncomingDamageMultiplier = 1.2f;
-        const float MoveModeAttackPenalty = 0.12f;
         const string TransportMappingFileName = "transport-mappings.json";
         const string TransportMappingFilePattern = "transport-mappings*.json";
 
@@ -104,9 +101,9 @@ namespace SquadOfSteelMod
             Debug.Log($"[SquadOfSteel][MoveMode] Diagnostic tracing {(enabled ? "ENABLED" : "disabled")}.");
         }
 
-        public static float IncomingHitChanceBonus => MoveModeIncomingHitChanceBonus;
-        public static float IncomingDamageMultiplier => MoveModeIncomingDamageMultiplier;
-        public static float AttackerPenalty => MoveModeAttackPenalty;
+        public static float IncomingHitChanceBonus => CombatResolutionSettings.Squad.MoveMode.IncomingHitChanceBonus;
+        public static float IncomingDamageMultiplier => CombatResolutionSettings.Squad.MoveMode.IncomingDamageMultiplier;
+        public static float AttackerPenalty => CombatResolutionSettings.Squad.MoveMode.AttackerHitChancePenalty;
         static int CurrentTurn => GameData.Instance?.map?.turnCount ?? -1;
 
         sealed class MovementBuffRecord

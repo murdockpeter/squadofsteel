@@ -19,6 +19,10 @@ namespace SquadOfSteelMod.Combat
             if (__instance?.unitGO == null || p_targetUnitGO == null)
                 return;
 
+            int weightedCoreDamage = CombatResolutionSettings.ApplyCoreFactors(__instance, __result);
+            __instance.FinalDamage = weightedCoreDamage;
+            __result = weightedCoreDamage;
+
             var attackerGO = __instance.unitGO;
             var targetGO = p_targetUnitGO;
 
@@ -34,7 +38,12 @@ namespace SquadOfSteelMod.Combat
             int targetSupp = SquadOfSteelSuppression.Get(targetGO.unit);
 
             float hitChance = SquadOfSteelCombatMath.ComputeHitChance(__instance, attackerGO, targetGO, distance, hasLoS, attackerSupp, targetSupp, p_isRetaliation, p_isSupportiveFire);
-            int damageOnHit = SquadOfSteelCombatMath.ComputeDamageOnHit(baseDamage, distance, targetSupp, targetGO.unit);
+            int damageOnHit = SquadOfSteelCombatMath.ComputeDamageOnHit(
+                baseDamage,
+                distance,
+                targetSupp,
+                targetGO.unit,
+                __instance);
 
             if (!hasLoS)
             {
@@ -96,7 +105,12 @@ namespace SquadOfSteelMod.Combat
                 int attackerSupp = SquadOfSteelSuppression.Get(__instance.unit);
                 int targetSupp = SquadOfSteelSuppression.Get(p_targetUnitGO.unit);
                 float fallbackHit = SquadOfSteelCombatMath.ComputeHitChance(__instance.unit, __instance, p_targetUnitGO, distance, hasLoS, attackerSupp, targetSupp, isRetaliation: false, isSupport: false);
-                int fallbackDamage = SquadOfSteelCombatMath.ComputeDamageOnHit(__instance.unit.FinalDamage, distance, targetSupp, p_targetUnitGO.unit);
+                int fallbackDamage = SquadOfSteelCombatMath.ComputeDamageOnHit(
+                    __instance.unit.FinalDamage,
+                    distance,
+                    targetSupp,
+                    p_targetUnitGO.unit,
+                    __instance.unit);
                 int fallbackExpected = Mathf.RoundToInt(fallbackDamage * fallbackHit);
 
                 preview = new CombatPreview(
@@ -151,12 +165,13 @@ namespace SquadOfSteelMod.Combat
 
             if (__state.Hit && __state.Damage > 0)
             {
-                SquadOfSteelSuppression.Add(p_targetUnitGO.unit, 30);
-                SquadOfSteelSuppression.Reduce(__instance.unit, 8);
+                var suppression = CombatResolutionSettings.Squad.Suppression;
+                SquadOfSteelSuppression.Add(p_targetUnitGO.unit, suppression.TargetGainOnHit);
+                SquadOfSteelSuppression.Reduce(__instance.unit, suppression.AttackerRecoveryOnHit);
             }
             else if (__state.HasLineOfSight && __state.DamageOnHit > 0)
             {
-                SquadOfSteelSuppression.Add(p_targetUnitGO.unit, 12);
+                SquadOfSteelSuppression.Add(p_targetUnitGO.unit, CombatResolutionSettings.Squad.Suppression.TargetGainOnMiss);
             }
 
             __state.AttackerSuppressionAfter = SquadOfSteelSuppression.Get(__instance.unit);

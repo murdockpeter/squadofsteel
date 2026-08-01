@@ -2,6 +2,8 @@
 
 This reference explains how the Squad of Steel mod evaluates combat, derives suppression, and emits debugging output. Use it while tuning balance numbers, extending the overlay, or interpreting logs.
 
+The numeric combat settings are editable in `Assets/hex-of-steel-core-crt.json` and `Assets/squad-of-steel-crt.json`. Scale-specific distance, cover, LOS, and recovery values remain in `Assets/scale-profiles.json`. See `combat-resolution-tables-guide.md` for the weighting model and tuning workflow.
+
 ## Runtime Flow
 
 1. **Potential damage hook** - `Unit.GetPotentialDamage` is patched to compute a `CombatPreview` and to cache it by attacker/defender id pair (`CombatKey`). The patched value becomes the unit's advertised damage before the attack actually fires (`Scripts/Combat/SquadOfSteelCombatPatches.cs:21`).
@@ -122,24 +124,24 @@ Because `CombatPreview.HasLineOfSight` is stored with each attack, every downstr
 | Console log | Overlay text mirrored with the `[SquadOfSteel]` prefix for easy filtering. |
 | Squad panel | Console briefing prints LoS state for the selected attacker/target pair (`Scripts/SquadOfSteelUI.cs:58`). |
 
-Toggle debug mode with `F9` to monitor these outputs while iterating on LoS rules. For a full geometry breakdown, see `guides/line-of-sight-computation-guide.md`.
+Toggle debug mode with `F8` to monitor these outputs while iterating on LoS rules. For a full geometry breakdown, see `guides/line-of-sight-computation-guide.md`.
 
 ## Debugging & Telemetry Surfaces
 
 | Surface | Trigger / Toggle | What You See | Implementation |
 | --- | --- | --- | --- |
 | Unity log | Always on | Detailed multi-line combat breakdown per attack | `CombatDebugReporter.Report` (`Scripts/Combat/CombatDebugReporter.cs:13`). |
-| Overlay panel | Toggle with `F9` (debug on) | Scrollable list of recent combats, docked left | `CombatDebugOverlay` (`Scripts/Combat/CombatDebugOverlay.cs:18`). |
+| Overlay panel | Toggle with `F8` (debug on) | Scrollable list of recent combats, docked left | `CombatDebugOverlay` (`Scripts/Combat/CombatDebugOverlay.cs:18`). |
 | Toast popup | Needs `UIManager` instance | Short summary (`Attacker -> Target: HIT 72% / roll 0.41`) | `UIManager.ShowMessage` call in reporter (`Scripts/Combat/CombatDebugReporter.cs:45`). |
 | Map notification | When attacker owner is a human | Notification pinned to attacker tile with full debug text | `Notification` created in reporter (`Scripts/Combat/CombatDebugReporter.cs:36`). |
 | Suppression badge | Always on once indicator attaches | Ring plus numeric badge next to unit counter, colour-coded by suppression level | `SquadOfSteelSuppressionIndicator` (`Scripts/Combat/SquadOfSteelSuppressionIndicator.cs:12`). |
 
-Debug visibility persists across sessions via `SquadOfSteelState.SetCombatDebug`, so disabling with `F9` sticks (`Scripts/SquadOfSteelState.cs:120`).
+Debug visibility persists across sessions via `SquadOfSteelState.SetCombatDebug`, so disabling with `F8` sticks (`Scripts/SquadOfSteelState.cs:120`).
 
 ## Keybinds & UI Hooks
 
 - `K` (default) toggles the placeholder Squad panel, which prints a console briefing for the selected unit and its current target (`Scripts/SquadOfSteelKeybindHandler.cs:14`, `Scripts/SquadOfSteelUI.cs:30`).
-- `F9` toggles combat debug mode and overlay visibility (`Scripts/SquadOfSteelKeybindHandler.cs:16`).
+- `F8` toggles combat debug mode and overlay visibility (`Scripts/SquadOfSteelKeybindHandler.cs:16`).
 - All key reads go through reflected `UnityEngine.Input.GetKeyDown`, so keep the Unity input module loaded (`Scripts/SquadOfSteelKeybindHandler.cs:58`).
 
 ## Persistence Notes

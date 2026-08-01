@@ -96,10 +96,13 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $namesJsonPath = Join-Path $namesOutputPath 'official-units-export.json'
 $statsJsonPath = Join-Path $statsOutputPath 'official-units-stats.json'
 $mappingPath = Join-Path $repoRoot 'Assets\transport-mappings.json'
+$scaleProfilePath = Join-Path $repoRoot 'Assets\scale-profiles.json'
+$builtScaleProfilePath = Join-Path $repoRoot 'output\net48\Assets\scale-profiles.json'
 $guidesNamesPath = Join-Path $repoRoot 'guides\official-units-export.json'
 $namesPayload = [IO.File]::ReadAllText($namesJsonPath, $utf8) | ConvertFrom-Json
 $statsPayload = [IO.File]::ReadAllText($statsJsonPath, $utf8) | ConvertFrom-Json
 $mappingPayload = [IO.File]::ReadAllText($mappingPath, $utf8) | ConvertFrom-Json
+$scaleProfilePayload = [IO.File]::ReadAllText($scaleProfilePath, $utf8) | ConvertFrom-Json
 $guidesPayload = [IO.File]::ReadAllText($guidesNamesPath, $utf8) | ConvertFrom-Json
 
 Assert-True ($namesPayload.totalSerializedEntries -gt 0) "Official-unit names export was empty."
@@ -128,6 +131,21 @@ $missingCarriers = @($carrierNames | Where-Object { $_ -notin $officialNames })
 Assert-True ($missingCarriers.Count -eq 0) "Transport mappings reference missing carriers: $($missingCarriers -join ', ')"
 Assert-True ($officialNames -contains 'Panzergrenadiers') "Expected HoS 8.4.11 unit 'Panzergrenadiers' was not found."
 Assert-True ($null -ne $mappingPayload.Panzergrenadiers) "No transport mapping exists for HoS 8.4.11 'Panzergrenadiers'."
+
+$scaleProfileIds = @($scaleProfilePayload.profiles | ForEach-Object { $_.id })
+Assert-True (Test-Path -LiteralPath $builtScaleProfilePath) "Scale profile configuration was not copied to the build output."
+Assert-True ($scaleProfileIds.Count -eq ($scaleProfileIds | Sort-Object -Unique).Count) "Scale profile ids must be unique."
+Assert-True ($scaleProfileIds -contains 'default') "Scale profiles do not contain the Default interpretation."
+Assert-True ($scaleProfileIds -contains 'operational-5km') "Scale profiles do not contain the Operational interpretation."
+Assert-True ($scaleProfileIds -contains 'company-1km') "Scale profiles do not contain the Company interpretation."
+Assert-True ($scaleProfileIds -contains 'platoon-250m') "Scale profiles do not contain the Platoon interpretation."
+Assert-True ($scaleProfileIds -contains 'squad-50m') "Scale profiles do not contain the Squad interpretation."
+
+$defaultScaleProfile = $scaleProfilePayload.profiles | Where-Object { $_.id -eq 'default' } | Select-Object -First 1
+Assert-True ($defaultScaleProfile.distanceModel -eq 'perHex') "Default scale must retain per-hex distance falloff."
+Assert-True ([double]$defaultScaleProfile.accuracyPenaltyPerHex -eq 0.10) "Default scale accuracy falloff changed."
+Assert-True ([double]$defaultScaleProfile.damageLossPerHex -eq 0.08) "Default scale damage falloff changed."
+Assert-True ([int]$defaultScaleProfile.passiveSuppressionRecovery -eq 15) "Default suppression recovery changed."
 
 Write-Host "Checking release metadata..."
 $manifest = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'ModPackage\Manifest.json') | ConvertFrom-Json

@@ -5,6 +5,7 @@
 
 using System.Text;
 using SquadOfSteelMod.Combat;
+using SquadOfSteelMod.Scale;
 using UnityEngine;
 
 namespace SquadOfSteelMod
@@ -95,12 +96,13 @@ namespace SquadOfSteelMod
                     selectedUnitGO.unit.FinalDamage > 0 ? selectedUnitGO.unit.FinalDamage : selectedUnitGO.unit.BaseSoftDamage,
                     distance,
                     targetSuppression,
-                    targetedUnitGO.unit);
+                    targetedUnitGO.unit,
+                    selectedUnitGO.unit);
 
                 sb.AppendLine($" - Target: {targetedUnitGO.unit.Name}");
                 sb.AppendLine($"   - Suppression: {targetSuppression}");
                 sb.AppendLine($"   - Movement mode: {targetMode}");
-                sb.AppendLine($"   - Distance: {distance} hex");
+                sb.AppendLine($"   - Distance: {SquadScaleRuntime.FormatDistance(distance)}");
                 sb.AppendLine($"   - Line of sight: {(hasLoS ? "clear" : "blocked")}");
                 sb.AppendLine($"   - Hit chance: {Mathf.RoundToInt(hitChance * 100f)}%");
                 sb.AppendLine($"   - Damage on hit (est.): {damageOnHit}");

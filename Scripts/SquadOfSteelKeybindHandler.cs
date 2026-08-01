@@ -6,6 +6,7 @@
 using System;
 using System.Reflection;
 using SquadOfSteelMod.Combat;
+using SquadOfSteelMod.Scale;
 using UnityEngine;
 
 namespace SquadOfSteelMod
@@ -13,7 +14,7 @@ namespace SquadOfSteelMod
     public class SquadOfSteelKeybindHandler : MonoBehaviour
     {
         public static KeyCode toggleKey = KeyCode.K;
-        public static KeyCode debugToggleKey = KeyCode.F9;
+        public static KeyCode debugToggleKey = KeyCode.F8;
         public static KeyCode moveToggleKey = KeyCode.V;
 
         static Type _inputType;
@@ -28,6 +29,11 @@ namespace SquadOfSteelMod
 
         void Update()
         {
+            SquadScaleRuntime.Tick();
+            SquadScaleSelectionUI.TryShowIfNeeded();
+            if (SquadScaleSelectionUI.IsBlocking)
+                return;
+
             if (!_loggedUpdate)
             {
                 Debug.Log("[SquadOfSteel] Update() receiving frames");

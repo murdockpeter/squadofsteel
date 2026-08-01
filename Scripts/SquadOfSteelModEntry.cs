@@ -5,6 +5,7 @@
 
 using HarmonyLib;
 using SquadOfSteelMod.Combat;
+using SquadOfSteelMod.Scale;
 using UnityEngine;
 
 namespace SquadOfSteelMod
@@ -35,6 +36,7 @@ namespace SquadOfSteelMod
 
             SquadOfSteelUI.Shutdown();
             SquadCombatRuntime.Shutdown();
+            SquadScaleSelectionUI.Shutdown();
             SquadOfSteelState.Save();
 
             if (_keybindHost != null)

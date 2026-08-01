@@ -1,0 +1,131 @@
+{
+  "profiles": [
+    {
+      "id": "default",
+      "displayName": "Default / Existing SoS",
+      "description": "Current Squad of Steel behavior; physical scale remains abstract.",
+      "hexMeters": 0,
+      "turnMinutes": 0,
+      "distanceModel": "perHex",
+      "adjacentHitBonus": 0.05,
+      "accuracyPenaltyPerHex": 0.10,
+      "accuracyPenaltyAtMaximumRange": 0.30,
+      "damageLossPerHex": 0.08,
+      "damageMultiplierAtMaximumRange": 0.70,
+      "groundUnitsBlockLineOfSight": true,
+      "airUnitsBlockLineOfSight": true,
+      "blockingTerrain": ["FOREST", "MOUNTAIN", "CITY", "TRENCH", "FACTORY", "HILL"],
+      "coverPenalties": {
+        "FOREST": 0.18,
+        "MOUNTAIN": 0.22,
+        "CITY": 0.25,
+        "TRENCH": 0.28,
+        "HILL": 0.12,
+        "MARSH": 0.10,
+        "HARBOUR": 0.10,
+        "FACTORY": 0.18
+      },
+      "passiveSuppressionRecovery": 15
+    },
+    {
+      "id": "operational-5km",
+      "displayName": "Operational - 5 km/hex",
+      "description": "Operational distance labels with the existing SoS combat and LOS interpretation.",
+      "hexMeters": 5000,
+      "turnMinutes": 360,
+      "distanceModel": "perHex",
+      "adjacentHitBonus": 0.05,
+      "accuracyPenaltyPerHex": 0.10,
+      "damageLossPerHex": 0.08,
+      "groundUnitsBlockLineOfSight": true,
+      "airUnitsBlockLineOfSight": true,
+      "blockingTerrain": ["FOREST", "MOUNTAIN", "CITY", "TRENCH", "FACTORY", "HILL"],
+      "coverPenalties": {
+        "FOREST": 0.18,
+        "MOUNTAIN": 0.22,
+        "CITY": 0.25,
+        "TRENCH": 0.28,
+        "HILL": 0.12,
+        "MARSH": 0.10,
+        "HARBOUR": 0.10,
+        "FACTORY": 0.18
+      },
+      "passiveSuppressionRecovery": 15
+    },
+    {
+      "id": "company-1km",
+      "displayName": "Company - 1 km/hex",
+      "description": "Range-relative falloff and company-scale distance reporting; unit statistics remain untouched.",
+      "hexMeters": 1000,
+      "turnMinutes": 60,
+      "distanceModel": "fractionOfRange",
+      "adjacentHitBonus": 0.05,
+      "accuracyPenaltyAtMaximumRange": 0.30,
+      "damageMultiplierAtMaximumRange": 0.70,
+      "groundUnitsBlockLineOfSight": false,
+      "airUnitsBlockLineOfSight": false,
+      "blockingTerrain": ["FOREST", "MOUNTAIN", "CITY", "FACTORY", "HILL"],
+      "coverPenalties": {
+        "FOREST": 0.20,
+        "MOUNTAIN": 0.20,
+        "CITY": 0.30,
+        "TRENCH": 0.32,
+        "HILL": 0.12,
+        "MARSH": 0.08,
+        "HARBOUR": 0.08,
+        "FACTORY": 0.24
+      },
+      "passiveSuppressionRecovery": 12
+    },
+    {
+      "id": "platoon-250m",
+      "displayName": "Platoon - 250 m/hex",
+      "description": "Tactical LOS, range-relative falloff, and 15-minute suppression recovery; unit statistics remain untouched.",
+      "hexMeters": 250,
+      "turnMinutes": 15,
+      "distanceModel": "fractionOfRange",
+      "adjacentHitBonus": 0.05,
+      "accuracyPenaltyAtMaximumRange": 0.25,
+      "damageMultiplierAtMaximumRange": 0.75,
+      "groundUnitsBlockLineOfSight": false,
+      "airUnitsBlockLineOfSight": false,
+      "blockingTerrain": ["FOREST", "MOUNTAIN", "CITY", "FACTORY", "HILL"],
+      "coverPenalties": {
+        "FOREST": 0.22,
+        "MOUNTAIN": 0.18,
+        "CITY": 0.35,
+        "TRENCH": 0.40,
+        "HILL": 0.10,
+        "MARSH": 0.06,
+        "HARBOUR": 0.06,
+        "FACTORY": 0.30
+      },
+      "passiveSuppressionRecovery": 8
+    },
+    {
+      "id": "squad-50m",
+      "displayName": "Squad - 50 m/hex",
+      "description": "Close tactical LOS, range-relative falloff, and 5-minute suppression recovery; unit statistics remain untouched.",
+      "hexMeters": 50,
+      "turnMinutes": 5,
+      "distanceModel": "fractionOfRange",
+      "adjacentHitBonus": 0.05,
+      "accuracyPenaltyAtMaximumRange": 0.20,
+      "damageMultiplierAtMaximumRange": 0.80,
+      "groundUnitsBlockLineOfSight": false,
+      "airUnitsBlockLineOfSight": false,
+      "blockingTerrain": ["FOREST", "MOUNTAIN", "CITY", "FACTORY", "HILL"],
+      "coverPenalties": {
+        "FOREST": 0.25,
+        "MOUNTAIN": 0.18,
+        "CITY": 0.38,
+        "TRENCH": 0.42,
+        "HILL": 0.08,
+        "MARSH": 0.05,
+        "HARBOUR": 0.05,
+        "FACTORY": 0.34
+      },
+      "passiveSuppressionRecovery": 5
+    }
+  ]
+}

@@ -5,15 +5,13 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using SquadOfSteelMod.Scale;
 
 namespace SquadOfSteelMod.Combat
 {
     public static class SquadOfSteelSuppression
     {
-        const int MaxSuppression = 100;
         const int MinSuppression = 0;
-        const int PassiveRecoveryPerTurn = 15;
-
         static readonly Dictionary<int, SuppressionRecord> s_values = new Dictionary<int, SuppressionRecord>();
 
         sealed class SuppressionRecord
@@ -37,7 +35,7 @@ namespace SquadOfSteelMod.Combat
 
                 s_values[pair.Key] = new SuppressionRecord
                 {
-                    Value = Mathf.Clamp(pair.Value, MinSuppression, MaxSuppression)
+                    Value = Mathf.Clamp(pair.Value, MinSuppression, Maximum)
                 };
             }
         }
@@ -66,7 +64,7 @@ namespace SquadOfSteelMod.Combat
                 return;
 
             var record = GetOrCreate(unit);
-            int newValue = Mathf.Clamp(record.Value + amount, MinSuppression, MaxSuppression);
+            int newValue = Mathf.Clamp(record.Value + amount, MinSuppression, Maximum);
             if (newValue == record.Value)
                 return;
 
@@ -83,7 +81,7 @@ namespace SquadOfSteelMod.Combat
             if (!s_values.TryGetValue(unit.ID, out var record))
                 return;
 
-            int newValue = Mathf.Clamp(record.Value - amount, MinSuppression, MaxSuppression);
+            int newValue = Mathf.Clamp(record.Value - amount, MinSuppression, Maximum);
             if (newValue == record.Value)
                 return;
 
@@ -96,8 +94,11 @@ namespace SquadOfSteelMod.Combat
             DebugSuppression($"Reduced suppression on {unit.Name} (#{unit.ID}) by {amount} -> {record.Value}");
         }
 
-        public static void DecayAll(int amount = PassiveRecoveryPerTurn)
+        public static void DecayAll(int amount = -1)
         {
+            if (amount < 0)
+                amount = SquadScaleRuntime.PassiveSuppressionRecovery;
+
             if (s_values.Count == 0 || amount <= 0)
                 return;
 
@@ -106,7 +107,7 @@ namespace SquadOfSteelMod.Combat
             foreach (int key in keys)
             {
                 var record = s_values[key];
-                int newValue = Mathf.Clamp(record.Value - amount, MinSuppression, MaxSuppression);
+                int newValue = Mathf.Clamp(record.Value - amount, MinSuppression, Maximum);
                 if (newValue != record.Value)
                 {
                     record.Value = newValue;
@@ -147,6 +148,8 @@ namespace SquadOfSteelMod.Combat
             }
             return record;
         }
+
+        static int Maximum => CombatResolutionSettings.Squad.Suppression.Maximum;
 
         [System.Diagnostics.Conditional("SQUADOFSTEEL_DEBUG_SUPPRESSION")]
         static void DebugSuppression(string message)

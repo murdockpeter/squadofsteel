@@ -1,0 +1,32 @@
+{
+  "_about": "Additional combat-resolution factors introduced by Squad Of Steel. Decimal probabilities use 0.10 for ten percentage points. Values are read when the mod DLL first uses combat settings; restart Hex of Steel after editing.",
+  "_scaleSpecific": "Distance accuracy, range damage, cover, LOS, and passive suppression recovery remain in scale-profiles.json because they vary with the selected battlefield scale.",
+  "hitChance": {
+    "baseChance": 0.78,
+    "minimum": 0.05,
+    "maximum": 0.95,
+    "tankBonus": 0.05,
+    "infantryCloseRangeBonus": 0.04,
+    "infantryCloseRangeMaximumHexes": 2,
+    "retaliationPenalty": 0.10,
+    "supportiveFirePenalty": 0.05,
+    "attackerSuppressionPenaltyAtMaximum": 0.45,
+    "targetSuppressionBonusAtMaximum": 0.25
+  },
+  "damage": {
+    "targetSuppressionBonusAtMaximum": 0.35,
+    "randomSpreadMinimum": 0.85,
+    "randomSpreadMaximum": 1.15
+  },
+  "suppression": {
+    "maximum": 100,
+    "targetGainOnHit": 30,
+    "attackerRecoveryOnHit": 8,
+    "targetGainOnMiss": 12
+  },
+  "moveMode": {
+    "incomingHitChanceBonus": 0.15,
+    "incomingDamageMultiplier": 1.20,
+    "attackerHitChancePenalty": 0.12
+  }
+}

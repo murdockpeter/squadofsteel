@@ -5,6 +5,7 @@
 using System;
 using System.Text;
 using UnityEngine;
+using SquadOfSteelMod.Scale;
 
 namespace SquadOfSteelMod.Combat
 {
@@ -24,7 +25,8 @@ namespace SquadOfSteelMod.Combat
             sb.AppendLine($"Combat debug: {attacker.unit.Name} -> {defender.unit.Name}");
             sb.AppendLine($" - Hit chance: {Mathf.RoundToInt(outcome.HitChance * 100f)}% (roll: {outcome.Roll:0.00})");
             sb.AppendLine($" - Outcome: {(outcome.Hit ? "HIT" : "MISS")}, damage: {actualDamage}/{outcome.DamageOnHit} (base {outcome.BaseDamage}, expected {outcome.ExpectedDamage})");
-            sb.AppendLine($" - Distance: {outcome.Distance} hex, LoS: {(outcome.HasLineOfSight ? "clear" : "blocked")}, retaliation: {(outcome.IsRetaliation ? "yes" : "no")}, support: {(outcome.IsSupport ? "yes" : "no")}");
+            sb.AppendLine($" - Scale: {SquadScaleRuntime.ActiveProfile.DisplayName}");
+            sb.AppendLine($" - Distance: {SquadScaleRuntime.FormatDistance(outcome.Distance)}, LoS: {(outcome.HasLineOfSight ? "clear" : "blocked")}, retaliation: {(outcome.IsRetaliation ? "yes" : "no")}, support: {(outcome.IsSupport ? "yes" : "no")}");
             sb.AppendLine($" - Suppression attacker {outcome.AttackerSuppressionBefore}->{outcome.AttackerSuppressionAfter}, target {outcome.TargetSuppressionBefore}->{outcome.TargetSuppressionAfter}");
 
             string message = sb.ToString();

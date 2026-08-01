@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using SquadOfSteelMod;
+using SquadOfSteelMod.Scale;
 
 namespace SquadOfSteelMod.Combat
 {
@@ -101,7 +102,8 @@ namespace SquadOfSteelMod.Combat
             int damage = 0;
             if (hit)
             {
-                float spread = UnityEngine.Random.Range(0.85f, 1.15f);
+                var damageFactors = CombatResolutionSettings.Squad.Damage;
+                float spread = UnityEngine.Random.Range(damageFactors.RandomSpreadMinimum, damageFactors.RandomSpreadMaximum);
                 damage = Mathf.Max(0, Mathf.RoundToInt(preview.DamageOnHit * spread));
             }
 
@@ -300,61 +302,44 @@ namespace SquadOfSteelMod.Combat
 
     public static class SquadOfSteelCombatMath
     {
-        static readonly Dictionary<TileTypes, float> s_coverPenalties = new Dictionary<TileTypes, float>
-        {
-            { TileTypes.FOREST, 0.18f },
-            { TileTypes.MOUNTAIN, 0.22f },
-            { TileTypes.CITY, 0.25f },
-            { TileTypes.TRENCH, 0.28f },
-            { TileTypes.HILL, 0.12f },
-            { TileTypes.MARSH, 0.10f },
-            { TileTypes.HARBOUR, 0.10f },
-            { TileTypes.FACTORY, 0.18f }
-        };
-
         public static float ComputeHitChance(Unit attacker, UnitGO attackerGO, UnitGO targetGO, int distance, bool hasLoS, int attackerSuppression, int targetSuppression, bool isRetaliation, bool isSupport)
         {
             if (!hasLoS)
                 return 0f;
 
-            float chance = 0.78f;
+            var factors = CombatResolutionSettings.Squad.HitChance;
+            float chance = factors.BaseChance;
+            chance += SquadScaleRuntime.GetAccuracyDistanceModifier(attacker, distance);
 
-            if (distance <= 1)
-            {
-                chance += 0.05f;
-            }
-            else
-            {
-                chance -= 0.1f * (distance - 1);
-            }
-
-            if (targetGO?.tileGO?.tile != null && s_coverPenalties.TryGetValue(targetGO.tileGO.tile.enumType, out float penalty))
+            if (targetGO?.tileGO?.tile != null &&
+                SquadScaleRuntime.TryGetCoverPenalty(targetGO.tileGO.tile.enumType, out float penalty))
             {
                 chance -= penalty;
             }
 
             if (!string.IsNullOrEmpty(attacker?.FilterType) && attacker.FilterType == "FilterTank")
             {
-                chance += 0.05f;
+                chance += factors.TankBonus;
             }
 
-            if (!string.IsNullOrEmpty(attacker?.FilterType) && attacker.FilterType == "FilterInfantry" && distance <= 2)
+            if (!string.IsNullOrEmpty(attacker?.FilterType) && attacker.FilterType == "FilterInfantry" && distance <= factors.InfantryCloseRangeMaximumHexes)
             {
-                chance += 0.04f;
+                chance += factors.InfantryCloseRangeBonus;
             }
 
             if (isRetaliation)
             {
-                chance -= 0.1f;
+                chance -= factors.RetaliationPenalty;
             }
 
             if (isSupport)
             {
-                chance -= 0.05f;
+                chance -= factors.SupportiveFirePenalty;
             }
 
-            chance -= Mathf.Clamp01(attackerSuppression / 100f) * 0.45f;
-            chance += Mathf.Clamp01(targetSuppression / 100f) * 0.25f;
+            float maximumSuppression = CombatResolutionSettings.Squad.Suppression.Maximum;
+            chance -= Mathf.Clamp01(attackerSuppression / maximumSuppression) * factors.AttackerSuppressionPenaltyAtMaximum;
+            chance += Mathf.Clamp01(targetSuppression / maximumSuppression) * factors.TargetSuppressionBonusAtMaximum;
 
             if (attacker != null && SquadMovementRuntime.GetMode(attacker) == SquadMovementRuntime.MovementMode.Move)
             {
@@ -366,22 +351,20 @@ namespace SquadOfSteelMod.Combat
                 chance += SquadMovementRuntime.IncomingHitChanceBonus;
             }
 
-            return Mathf.Clamp(chance, 0.05f, 0.95f);
+            return Mathf.Clamp(chance, factors.Minimum, factors.Maximum);
         }
 
-        public static int ComputeDamageOnHit(int baseDamage, int distance, int targetSuppression, Unit targetUnit = null)
+        public static int ComputeDamageOnHit(int baseDamage, int distance, int targetSuppression, Unit targetUnit = null, Unit attackerUnit = null)
         {
             if (baseDamage <= 0)
                 return 0;
 
             float damage = baseDamage;
+            damage *= SquadScaleRuntime.GetDamageDistanceMultiplier(attackerUnit, distance);
 
-            if (distance > 1)
-            {
-                damage *= Mathf.Clamp01(1f - 0.08f * (distance - 1));
-            }
-
-            damage *= 1f + Mathf.Clamp01(targetSuppression / 100f) * 0.35f;
+            float maximumSuppression = CombatResolutionSettings.Squad.Suppression.Maximum;
+            damage *= 1f + Mathf.Clamp01(targetSuppression / maximumSuppression) *
+                CombatResolutionSettings.Squad.Damage.TargetSuppressionBonusAtMaximum;
 
             if (targetUnit != null && SquadMovementRuntime.GetMode(targetUnit) == SquadMovementRuntime.MovementMode.Move)
             {
@@ -394,16 +377,6 @@ namespace SquadOfSteelMod.Combat
 
     public static class LineOfSightService
     {
-        static readonly TileTypes[] s_blockingTiles =
-        {
-            TileTypes.FOREST,
-            TileTypes.MOUNTAIN,
-            TileTypes.CITY,
-            TileTypes.TRENCH,
-            TileTypes.FACTORY,
-            TileTypes.HILL
-        };
-
         public static bool IsIndirectFire(Unit unit)
         {
             if (unit == null)
@@ -452,14 +425,18 @@ namespace SquadOfSteelMod.Combat
 
                 if (tile.tileGO != null)
                 {
-                    if (tile.tileGO.groundUnitGO != null || tile.tileGO.airUnitGO != null)
+                    bool groundBlocker = SquadScaleRuntime.GroundUnitsBlockLineOfSight &&
+                                         tile.tileGO.groundUnitGO != null;
+                    bool airBlocker = SquadScaleRuntime.AirUnitsBlockLineOfSight &&
+                                      tile.tileGO.airUnitGO != null;
+                    if (groundBlocker || airBlocker)
                     {
                         blockingTile = tile;
                         return false;
                     }
                 }
 
-                if (s_blockingTiles.Contains(tile.enumType))
+                if (SquadScaleRuntime.TerrainBlocksLineOfSight(tile.enumType))
                 {
                     blockingTile = tile;
                     return false;

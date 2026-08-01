@@ -34,8 +34,8 @@ The resulting tile sequence includes both endpoints; intermediate points are ins
 
 ### Blocker Evaluation
 
-1. **Occupied tiles** – Any intermediate tile whose `tileGO` hosts a ground or air `UnitGO` stops line of sight. The blocking tile instance is captured for downstream messaging.
-2. **Static terrain** – Terrain types in the blocking array `{Forest, Mountain, City, Trench, Factory, Hill}` prevent LoS. These are deliberately stricter than the cover penalties listed in combat math; Marsh and Harbour only degrade hit chance.
+1. **Occupied tiles** – An intermediate ground or air `UnitGO` stops line of sight only when the active scale profile enables that blocker category. Default and Operational enable both; Company, Platoon, and Squad disable both.
+2. **Static terrain** – Terrain names in the active profile's `blockingTerrain` collection prevent LoS. Default and Operational use `{Forest, Mountain, City, Trench, Factory, Hill}`. Company, Platoon, and Squad omit `Trench`; its cover penalty still applies to the target tile.
 3. **Fallback** – Empty or passable tiles allow the ray to continue. If the loop completes, LoS is clear.
 
 When a blocking tile is discovered, `HasLineOfSight` returns `false` and passes the tile through the out parameter used by `ValidateDirectFire`.
@@ -80,12 +80,12 @@ Because LoS is captured in `CombatPreview.HasLineOfSight`, every downstream cons
 ### Troubleshooting Tips
 
 - When LoS appears “always true”, verify that the attacking unit qualifies as indirect fire; test with a known direct-fire unit (e.g., tanks with `FilterTank`).
-- To validate terrain blockers, temporarily enable `SquadCombatRuntime.DebugEnabled` (press `F9` in-game) and inspect overlay entries for the LoS status and blocking tile reports.
+- To validate terrain blockers, temporarily enable `SquadCombatRuntime.DebugEnabled` (press `F8` in-game) and inspect overlay entries for the LoS status and blocking tile reports.
 - During load sequences, a warning (`"[SquadOfSteel][Overlay] Entry queued; overlay not yet ready."`) can accompany queued debug entries; once the canvas is live, LoS results will display retroactively.
 
 ## Extensibility Notes
 
-- Adding new blocking terrain is as simple as updating the `s_blockingTiles` array. Remember to also adjust any art assets or map generation to indicate the obstruction visually.
+- Add or remove blocking terrain through `Assets/scale-profiles.json`. Remember to keep the map art and scenario design consistent with the selected interpretation.
 - To support partial cover, consider expanding `ComputeHitChance` instead of hard-blocking LoS; the dedicated blocking array currently reflects “full wall” tiles.
 - If you introduce per-unit LoS modifiers (e.g., scouts that can see through forests), extend `HasLineOfSight` with unit-specific checks before the blocker loop.
 

@@ -24,6 +24,8 @@ $outputRoot = Join-Path $repoRoot 'output\net48'
 $dllSource = Join-Path $outputRoot 'SquadOfSteel.dll'
 $assetDirectory = Join-Path $outputRoot 'Assets'
 $mappingSourcePattern = 'transport-mappings*.json'
+$scaleProfileSource = Join-Path $assetDirectory 'scale-profiles.json'
+$combatTableSources = Get-ChildItem -Path $assetDirectory -Filter '*-crt.json' -File -ErrorAction SilentlyContinue
 $manifestSource = Join-Path $repoRoot 'ModPackage\Manifest.json'
 $infoSource = Join-Path $repoRoot 'ModPackage\info.txt'
 $iconSource = Join-Path $repoRoot 'Libraries\SmallImage.png'
@@ -65,6 +67,18 @@ $deployments.Add($dllDestination)
 foreach ($mappingSource in $mappingSources) {
     $destination = Join-Path $resolvedLibraryPath $mappingSource.Name
     Copy-Item -Path $mappingSource.FullName -Destination $destination -Force
+    $deployments.Add($destination)
+}
+
+if (Test-Path $scaleProfileSource) {
+    $destination = Join-Path $resolvedLibraryPath 'scale-profiles.json'
+    Copy-Item -Path $scaleProfileSource -Destination $destination -Force
+    $deployments.Add($destination)
+}
+
+foreach ($combatTableSource in $combatTableSources) {
+    $destination = Join-Path $resolvedLibraryPath $combatTableSource.Name
+    Copy-Item -Path $combatTableSource.FullName -Destination $destination -Force
     $deployments.Add($destination)
 }
 

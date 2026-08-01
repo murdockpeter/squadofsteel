@@ -14,10 +14,10 @@ This document summarizes how the Squad of Steel mod intercepts and resolves comb
 
 ### Hit Chance
 
-`SquadOfSteelCombatMath.ComputeHitChance` starts from a 78% baseline and applies additive modifiers before clamping the result to 5–95%. Major inputs include:
+`SquadOfSteelCombatMath.ComputeHitChance` starts from a 78% baseline and applies additive modifiers before clamping the result to 5–95%. Scale-dependent values come from the active profile. Major inputs include:
 
-- **Distance** – +5% at melee range, −10% per hex beyond the first.
-- **Cover** – Tile penalties up to −28% for trenches and −25% inside cities (see `s_coverPenalties` table).
+- **Distance** – Default adds +5% at range 1 and subtracts 10% per hex beyond it. Company, Platoon, and Squad profiles spread their configured penalty across the attacker's existing maximum range.
+- **Cover** – The active scale profile supplies the penalty for the target tile.
 - **Unit traits** – Tanks gain +5%; infantry within two hexes gain +4%; retaliation and support fire apply −10% and −5% respectively.
 - **Suppression** – Attacker suppression can subtract up to 45%; target suppression can add up to 25%.
 - **Movement mode** – Attacks initiated while moving incur `SquadMovementRuntime.AttackerPenalty`; targets caught moving gain both hit chance and damage adjustments.
@@ -28,7 +28,7 @@ If line of sight is lost, the hit chance is forced to zero upstream, guaranteein
 
 `ComputeDamageOnHit` scales the base damage from the preview:
 
-- Applies an 8% falloff per hex beyond range 1.
+- Applies the active profile's distance falloff. Default loses 8% per hex beyond range 1; Company, Platoon, and Squad interpolate toward a configured multiplier at the attacker's existing maximum range.
 - Amplifies damage up to +35% based on target suppression.
 - Multiplies damage when the defender is still flagged in `MovementMode.Move` via `SquadMovementRuntime.IncomingDamageMultiplier`.
 
@@ -36,18 +36,18 @@ The rolled outcome adds a ±15% spread to avoid deterministic results.
 
 ### Suppression Effects
 
-`SquadOfSteelSuppression` tracks a 0–100 suppression meter per unit, persists it across turns, and passively decays 15 points each turn. Post-attack logic adds 30 suppression on successful hits (or 12 for near misses with line of sight) and reduces attacker suppression by 8 when the shot lands. These values flow back into future hit and damage calculations and drive the UI indicator refresh.
+`SquadOfSteelSuppression` tracks a 0–100 suppression meter per unit and persists it across turns. Passive recovery is profile-driven (15 for Default/Operational, 12 for Company, 8 for Platoon, and 5 for Squad). Post-attack logic adds 30 suppression on successful hits (or 12 for near misses with line of sight) and reduces attacker suppression by 8 when the shot lands. These values flow back into future hit and damage calculations and drive the UI indicator refresh.
 
 ## Supporting Services
 
-- **Line of Sight** – `LineOfSightService.HasLineOfSight` samples the hex line between attacker and defender, blocking on intervening units or terrain (`Forest`, `Mountain`, `City`, `Trench`, `Factory`, `Hill`). Indirect fire classifications (planes, artillery, bombers, rockets/CAS) bypass the check.
+- **Line of Sight** – `LineOfSightService.HasLineOfSight` samples the hex line between attacker and defender and applies the active profile's unit and terrain blocker rules. Indirect fire classifications (planes, artillery, bombers, rockets/CAS) bypass the check.
 - **Combat state caches** – `SquadCombatRuntime` persists previews and outcomes keyed by attacker/defender ids for the duration of a turn, clearing entries once consumed or when a unit is destroyed.
 - **Debug instrumentation** – `CombatDebugOverlay` and `CombatDebugReporter` render the stored preview/outcome fields (hit chance, roll, suppression deltas, damage expectations) to help tune balance or diagnose irregularities.
 - **Movement coupling** – `SquadMovementRuntime` switches active attackers out of movement mode and resyncs counters post-attack, ensuring movement-derived penalties and bonuses remain in sync with the combat state machine.
 
 ## Data Persistence
 
-Suppression values serialize through `SquadOfSteelState.Save()` so persistent campaigns retain morale pressure. Combat previews/outcomes live only in-memory, scoped to the current turn, and are flushed on unit destruction or turn advance. Random rolls rely on Unity’s global `Random.value`, meaning seeds are shared with other random events unless a dedicated RNG is introduced.
+Suppression values serialize through `SquadOfSteelState.Save()` so persistent campaigns retain morale pressure. The selected scale profile id is stored separately in the scenario `ModDataBag`. Combat previews/outcomes live only in-memory, scoped to the current turn, and are flushed on unit destruction or turn advance. Random rolls rely on Unity’s global `Random.value`, meaning seeds are shared with other random events unless a dedicated RNG is introduced.
 
 ## Improvement Opportunities for Squad/Platoon Scale
 
